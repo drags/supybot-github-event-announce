@@ -16,13 +16,13 @@ import supybot.log as log
 import logging
 
 # system
-import time, threading, json, requests, os, sqlite, datetime
+import time, threading, json, requests, os, datetime
 
 # debug
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
-class GitEventAnnounce(callbacks.Plugin, plugins.ChannelDBHandler):
+class GitEventAnnounce(callbacks.Plugin):
 	"""Github Event Announcer: Announce the public or private event stream to an IRC channel"""
 	threaded = True
 
@@ -33,7 +33,6 @@ class GitEventAnnounce(callbacks.Plugin, plugins.ChannelDBHandler):
 		self.subscriptions = {}
 		self.authorizations = {}
 		self.irc = irc
-		self.dbCache = ircutils.IrcDict()
 
 		#loadsubs()
 
@@ -42,27 +41,7 @@ class GitEventAnnounce(callbacks.Plugin, plugins.ChannelDBHandler):
 		for sub in self.subscriptions.values():
 			sub.stop_polling()
 
-	def makeDb(self, filename):
-		if os.path.exists(filename):
-			return sqlite.connect(filename)
-		db = sqlite.connect(filename)
-		cursor = db.cursor()
-		cursor.execute("""CREATE TABLE subscriptions (
-						id INTEGER PRIMARY KEY,
-						login_user TEXT,
-						type TEXT,
-						target TEXT,
-						auth_id INTEGER
-						)""")
-		cursor.execute("""CREATE TABLE authorizations (
-						id INTEGER PRIMARY KEY,
-						username TEXT,
-						token TIMESTAMP,
-						scopes TEXT
-						)""")
-		# TODO trigger on authorization delete to delete subs which use that auth
-		db.commit()
-		return db
+# TODO trigger on authorization delete to delete subs which use that auth
 
 	def addsub(self, irc, msg, args, login_user, sub_type, target):
 		"""Add an event stream to watch"""
