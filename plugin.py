@@ -23,7 +23,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 class GitEventAnnounce(callbacks.Plugin):
-    """Github Event Announcer: Announce the public or private event stream to an IRC channel"""
+    '''Github Event Announcer: Announce the public or private event stream to an IRC channel'''
     threaded = True
 
     def __init__(self, irc):
@@ -37,22 +37,23 @@ class GitEventAnnounce(callbacks.Plugin):
         #loadsubs()
 
     def die(self):
-# TODO ensure all subscriptions are killed (including subs for 404 repos)
+        '''Cleanup polling jobs'''
+        # TODO ensure all subscriptions are killed (including subs for 404 repos)
         for sub in self.subscriptions.values():
             sub.stop_polling()
 
-# TODO trigger on authorization delete to delete subs which use that auth
+    # TODO trigger on authorization delete to delete subs which use that auth
 
     def addsub(self, irc, msg, args, login_user, sub_type, target):
-        """Add an event stream to watch"""
-# TODO add 404 checking to ensure repo/org/etc exists
+        '''Add an event stream to watch'''
+        # TODO add 404 checking to ensure repo/org/etc exists
         db = self.getDb(msg.args[0])
         cursor = db.cursor()
         cursor.execute("SELECT id FROM subscriptions WHERE login_user LIKE %s and type LIKE %s and target LIKE %s", login_user, sub_type, target)
         if cursor.rowcount != 0:
             irc.reply('The subscription %s already exists' % sub)
         if cursor.rowcount == 0:
-            #cursor.execute("""INSERT INTO keys VALUES (NULL, %s, 0)""", key)
+            #cursor.execute('''INSERT INTO keys VALUES (NULL, %s, 0)''', key)
             #db.commit()
             #cursor.execute("SELECT id, locked FROM keys WHERE key LIKE %s",key)
             pass
@@ -76,7 +77,7 @@ class GitEventAnnounce(callbacks.Plugin):
     addsub = wrap(addsub, ['something', 'something', 'something'])
 
     def authorize(self, irc, msg, args, username, password):
-        """Retrieve an OAuth token"""
+        '''Retrieve an OAuth token'''
         reqdata = {
         'note': 'GitEventAnnouncer - https://github.com/drags/supybot-github-event-announce',
         'scopes': [ 'repo' ],
@@ -100,7 +101,7 @@ class GitEventAnnounce(callbacks.Plugin):
     authorize = wrap(authorize, ['something','something'])
 
     def listsubs(self, irc, msg, args):
-        """LIst configured subscriptions"""
+        '''LIst configured subscriptions'''
         global pp
         for s in self.subscriptions:
             pp.pprint(self.subscriptions[s])
@@ -126,7 +127,6 @@ class Subscription(object):
     minimum_update_interval = 60
 
     def __init__(self, irc, msg, login_user, sub_type, target):
-
         if sub_type == 'repository':
             if not target.find('/'):
                 irc.reply('For repositories the target should be <username>/<repo>')
@@ -147,9 +147,11 @@ class Subscription(object):
         global pp
 
     def __str__(self):
+        '''[type] user@url'''
         return "[%s] %s@%s" % (self.sub_type, self.login_user, self.url)
 
     def _authorize(self, msg):
+        '''Message user instructions for providing an OAuth token'''
         self.irc.reply('Messaging you to authorize the %s account' % self.login_user)
         self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "(For security and privacy reasons, you may want to create a separate github user for this plugin.)"))
         self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "What is the password for the github user: %s ?" % self.login_user))
@@ -189,7 +191,7 @@ class Subscription(object):
             self.irc.queueMsg(msg)
 
     def announce_updates(self, updates):
-        """Takes list of Event updates from GitHub, handles or discards event as configured"""
+        '''Takes list of Event updates from GitHub, handles or discards event as configured'''
         sa = SubscriptionAnnouncer()
 
         updates = sorted(updates, key=lambda x: x['created_at'])
@@ -252,7 +254,7 @@ class SubscriptionAnnouncer:
     def PushEvent(self, sub, e):
         # Meh, just spam
         # Scratch that, now broken
-# TODO was it broken? or was it due to screen being in copy mode for that process?
+        # TODO was it broken? or was it due to screen being in copy mode for that process?
         return
 
         global pp
