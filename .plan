@@ -1,7 +1,17 @@
+TODO:
+- deletesub
+- Deal in OAUTH TOKENS only, rather than user messaging login, message user curl command for generating a token
+
+
+Config:
+update interval
+
+
 #--Etag polling
 saving orgs/tokens to persistent storage
 MINIM-FUCKING-AL
 pylint commit hook
+
 
 Events worth capturing:
 http://developer.github.com/v3/activity/events/types/
@@ -15,61 +25,62 @@ WatchEvent:
 
 To start:
 CreateEvent
-	actor
-		login
-	payload
-		master_branch
-		ref (new branch name)
-		ref_type (repository, branch, tag)
-	repo
-		name
+    actor
+        login
+    payload
+        master_branch
+        ref (new branch name)
+        ref_type (repository, branch, tag)
+    repo
+        name
 
-	if ref == 'repository':
-		"{actor:login} created new repo {repo:name}"
-	else:
-		"{actor:login} created new {payload:ref_type} '{payload:ref}' on {repo:name}"
+    if ref == 'repository':
+        "{actor:login} created new repo {repo:name}"
+    else:
+        "{actor:login} created new {payload:ref_type} '{payload:ref}' on {repo:name}"
 
 PullRequestEvent
-	actor
-		login
-	payload
-		pull_request
-			action
-			number
-			title
-			_links
-				html
-			head
-				ref
-			base
-				ref
-	repo
-		name
+    actor
+        login
+    payload
+        pull_request
+            action
+            number
+            title
+            _links
+                html
+            head
+                ref
+            base
+                ref
+    repo
+        name
 
-	"{actor:login} {payload:action} pull request {repo:name}/{payload:number} '{payload:title}' [{payload:_links:html}]"
+    "{actor:login} {payload:action} pull request {repo:name}/{payload:number} '{payload:title}' [{payload:_links:html}]"
 
 IssueCommentEvent
-	actor
-		login
-	payload
-		comment
-			body
-			url
-			user
-				login
+    actor
+        login
+    payload
+        comment
+            body
+            url
+            user
+                login
 
-	"{actor:login} commented on {payload:pull_request:html_url} {payload:comment[0:50]}... [
+    "{actor:login} commented on {payload:pull_request:html_url} {payload:comment[0:50]}... [
 
 PushEvent
-	actor
-		login
-	payload
-		size
-		commits
-			message
-			sha
-		ref (branch)
-	repo
-		name
+    actor
+        login
+    payload
+        size
+        commits
+            message
+            sha
+        ref (branch)
+    repo
+        name
 
-		"{actor:login} pushed {payload:size} commits to {repo:name}"
+        "{actor:login} pushed {payload:size} commits to {repo:name}"
+
