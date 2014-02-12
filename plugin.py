@@ -50,7 +50,7 @@ class GitEventAnnounce(callbacks.Plugin):
     # TODO trigger on authorization delete to delete subs which use that auth
 
     def addsub(self, irc, msg, args, login_user, sub_type, target):
-        '''Add an event stream to watch'''
+        '''Add an event stream to watch: args(github_user, type, name)'''
         # TODO add 404 checking to ensure repo/org/etc exists
         if sub_type not in Subscription.sub_types:
             irc.reply('Unknown subscription type: %s' %(sub_type))
@@ -84,11 +84,15 @@ class GitEventAnnounce(callbacks.Plugin):
     authorize = wrap(authorize, ['something','something'])
 
     def listsubs(self, irc, msg, args):
-        '''LIst configured subscriptions'''
+        '''List configured subscriptions'''
         global pp
-        for s in self.subscriptions:
-            pp.pprint(self.subscriptions[s])
-            irc.reply(str(s))
+        if len(self.subscriptions) > 0:
+            for s in self.subscriptions:
+                irc.reply("Active subscriptions:")
+                pp.pprint(self.subscriptions[s])
+                irc.reply(str(s))
+        else:
+            irc.reply('No active subscriptions')
         if len(self.pending_subscriptions) > 0:
             irc.reply("Pending subscriptions:")
             for s in self.pending_subscriptions:
