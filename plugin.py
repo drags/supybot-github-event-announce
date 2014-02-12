@@ -71,28 +71,16 @@ class GitEventAnnounce(callbacks.Plugin):
             sub._authorize(msg)
     addsub = wrap(addsub, ['something', 'something', 'something'])
 
-    def authorize(self, irc, msg, args, username, password):
-        '''Retrieve an OAuth token'''
-        reqdata = {
-        'note': 'GitEventAnnouncer - https://github.com/drags/supybot-github-event-announce',
-        'scopes': [ 'repo' ],
-        }
+    def authorize(self, irc, msg, args, username, token):
+        '''Accept an OAuth token'''
+        # TODO test if token works
+        for (name, sub) in self.pending_subscriptions.items():
+            if sub.login_user == username:
+                sub.token = token
+                sub.start_polling()
+                self.subscriptions[name]=sub
+                del(self.pending_subscriptions[name])
 
-        r = requests.post('https://api.github.com/authorizations', data=json.dumps(reqdata), auth=(username, password), headers={"Content-Type": "application/json" })
-        if r.ok:
-            self.authorizations[username] = {}
-            self.authorizations[username]['id'] = r.json['id']
-            self.authorizations[username]['token'] = r.json['token']
-
-            for (name,sub) in self.pending_subscriptions.items():
-                if sub.login_user == username:
-                    sub.token = r.json['token']
-                    sub.start_polling()
-                    self.subscriptions[name]=sub
-                    del(self.pending_subscriptions[name])
-        else:
-            msg = ircmsgs.privmsg(msg.nick, 'Failed to authorize against %s' % username)
-            self.irc.queueMsg(msg)
     authorize = wrap(authorize, ['something','something'])
 
     def listsubs(self, irc, msg, args):
@@ -146,11 +134,11 @@ class Subscription(object):
         return "[%s] %s@%s" % (self.sub_type, self.login_user, self.url)
 
     def _authorize(self, msg):
-        '''Message user instructions for providing an OAuth token'''
-        self.irc.reply('Messaging you to authorize the %s account' % self.login_user)
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "(For security and privacy reasons, you may want to create a separate github user for this plugin.)"))
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "What is the password for the github user: %s ?" % self.login_user))
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <password>'" % self.login_user))
+        '''Ask user for an OAuth token.'''
+        self.irc.reply('Messaging you to request an OAuth token for the %s user' % self.login_user)
+        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "In order to access the event stream an OAuth token is required."))
+        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Login to github with the appropriate user, and click 'Create new token' on https://github.com/settings/applications"))
+        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <token>'" % self.login_user))
 
     def start_polling(self):
         self.api_session.headers['Authorization'] = 'token %s' % self.token
