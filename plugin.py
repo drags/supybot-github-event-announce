@@ -134,8 +134,8 @@ class Subscription(object):
         self.sub_type = sub_type
         self.target = target
         self.url = url
-        self.headers = {}
-        self.headers['content-type'] = 'application/json'
+        self.api_session = requests.Session()
+        self.api_session.headers['content-type'] = 'application/json'
         self.latest_event_dt = datetime.datetime(1970,1,1)
         self.job_name = 'poll-%s' % str(self)
         print "Init'ing job name %s" % self.job_name
@@ -153,7 +153,7 @@ class Subscription(object):
         self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <password>'" % self.login_user))
 
     def start_polling(self):
-        self.headers['Authorization'] = 'token %s' % self.token
+        self.api_session.headers['Authorization'] = 'token %s' % self.token
         print "Starting job %s" % self.job_name
         schedule.addPeriodicEvent(self.fetch_updates, self.update_interval, now=True, name=self.job_name)
 
@@ -162,9 +162,9 @@ class Subscription(object):
         schedule.removeEvent(self.job_name)
 
     def fetch_updates(self):
-        r = requests.get(self.url, headers=self.headers)
+        r = self.api_session.get(self.url)
         logging.debug("Request headers")
-        logging.debug(self.headers)
+        logging.debug(self.api_session.headers)
         logging.debug("Response headers")
         logging.debug(r.headers)
 
@@ -172,7 +172,7 @@ class Subscription(object):
         if r.ok:
             if 'etag' in r.headers:
                 print "Got etag %s" % r.headers['etag']
-                self.headers['If-None-Match'] = r.headers['etag']
+                self.api_session.headers['If-None-Match'] = r.headers['etag']
             self.announce_updates(r.json)
 
         elif r.status_code == 304:
