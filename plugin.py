@@ -5,6 +5,14 @@
 #
 ###
 
+# system
+import os
+import time
+import json
+import threading
+import requests
+import datetime
+
 # SupyBot
 from supybot.commands import *
 import supybot.plugins as plugins
@@ -14,9 +22,6 @@ import supybot.ircmsgs as ircmsgs
 import supybot.ircutils as ircutils
 import supybot.log as log
 import logging
-
-# system
-import time, threading, json, requests, os, datetime
 
 # debug
 import pprint
