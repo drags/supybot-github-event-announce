@@ -47,16 +47,6 @@ class GitEventAnnounce(callbacks.Plugin):
     def addsub(self, irc, msg, args, login_user, sub_type, target):
         '''Add an event stream to watch'''
         # TODO add 404 checking to ensure repo/org/etc exists
-        db = self.getDb(msg.args[0])
-        cursor = db.cursor()
-        cursor.execute("SELECT id FROM subscriptions WHERE login_user LIKE %s and type LIKE %s and target LIKE %s", login_user, sub_type, target)
-        if cursor.rowcount != 0:
-            irc.reply('The subscription %s already exists' % sub)
-        if cursor.rowcount == 0:
-            #cursor.execute('''INSERT INTO keys VALUES (NULL, %s, 0)''', key)
-            #db.commit()
-            #cursor.execute("SELECT id, locked FROM keys WHERE key LIKE %s",key)
-            pass
         if sub_type not in Subscription.sub_types:
             irc.reply('Unknown subscription type: %s' %(sub_type))
             return
@@ -96,7 +86,7 @@ class GitEventAnnounce(callbacks.Plugin):
                     self.subscriptions[name]=sub
                     del(self.pending_subscriptions[name])
         else:
-            msg = ircmsgs.privmsg(msg.nick, 'Failed to authorize against %s' % self.login_user)
+            msg = ircmsgs.privmsg(msg.nick, 'Failed to authorize against %s' % username)
             self.irc.queueMsg(msg)
     authorize = wrap(authorize, ['something','something'])
 
