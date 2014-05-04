@@ -4,22 +4,16 @@
 # Because the firehose is delicious.
 #
 ###
-
 # system
-import os
-import time
-import json
-import threading
+
 import requests
 import datetime
 
 # SupyBot
 from supybot.commands import *
-import supybot.plugins as plugins
 import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
-import supybot.ircutils as ircutils
 import supybot.log as log
 import logging
 
@@ -27,8 +21,11 @@ import logging
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
+
 class GitEventAnnounce(callbacks.Plugin):
-    '''Github Event Announcer: Announce the public or private event stream to an IRC channel'''
+
+    '''Github Event Announcer: Announce the public or private event stream to
+        an IRC channel'''
     threaded = True
 
     def __init__(self, irc):
@@ -39,11 +36,11 @@ class GitEventAnnounce(callbacks.Plugin):
         self.authorizations = {}
         self.irc = irc
 
-        #loadsubs()
+        # loadsubs()
 
     def die(self):
         '''Cleanup polling jobs'''
-        # TODO ensure all subscriptions are killed (including subs for 404 repos)
+        # TODO ensure all subscriptions are killed (including 404'd repos)
         for sub in self.subscriptions.values():
             sub.stop_polling()
 
@@ -53,7 +50,7 @@ class GitEventAnnounce(callbacks.Plugin):
         '''Add an event stream to watch: args(github_user, type, name)'''
         # TODO add 404 checking to ensure repo/org/etc exists
         if sub_type not in Subscription.sub_types:
-            irc.reply('Unknown subscription type: %s' %(sub_type))
+            irc.reply('Unknown subscription type: %s' % (sub_type))
             return
 
         sub = Subscription(irc, msg, login_user, sub_type, target)
@@ -78,10 +75,10 @@ class GitEventAnnounce(callbacks.Plugin):
             if sub.login_user == username:
                 sub.token = token
                 sub.start_polling()
-                self.subscriptions[name]=sub
+                self.subscriptions[name] = sub
                 del(self.pending_subscriptions[name])
 
-    authorize = wrap(authorize, ['something','something'])
+    authorize = wrap(authorize, ['something', 'something'])
 
     def listsubs(self, irc, msg, args):
         '''List configured subscriptions'''
@@ -102,12 +99,13 @@ class GitEventAnnounce(callbacks.Plugin):
 
 Class = GitEventAnnounce
 
+
 class Subscription(object):
     sub_types = {
-        'user': 'https://api.github.com/users/%(target)s/events',
-        'repository': 'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
-        'organization': 'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s',
-    }
+        'user': 'https://api.github.com/users/%(target)s/events', 'repository':
+        'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
+        'organization':
+        'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s', }
 
     # TODO ##update_interval = 90
     update_interval = 60
@@ -116,7 +114,8 @@ class Subscription(object):
     def __init__(self, irc, msg, login_user, sub_type, target):
         if sub_type == 'repository':
             if not target.find('/'):
-                irc.reply('For repositories the target should be <username>/<repo>')
+                irc.reply(
+                    'For repositories the target should be <username>/<repo>')
             (target_user, target_repo) = target.split('/')
 
         url = str(Subscription.sub_types[sub_type]) % locals()
@@ -128,7 +127,7 @@ class Subscription(object):
         self.url = url
         self.api_session = requests.Session()
         self.api_session.headers['content-type'] = 'application/json'
-        self.latest_event_dt = datetime.datetime(1970,1,1)
+        self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
         print "Init'ing job name %s" % self.job_name
         global pp
@@ -139,15 +138,31 @@ class Subscription(object):
 
     def _authorize(self, msg):
         '''Ask user for an OAuth token.'''
-        self.irc.reply('Messaging you to request an OAuth token for the %s user' % self.login_user)
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "In order to access the event stream an OAuth token is required."))
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Login to github with the appropriate user, and click 'Create new token' on https://github.com/settings/applications"))
-        self.irc.queueMsg(ircmsgs.privmsg(msg.nick, "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <token>'" % self.login_user))
+        self.irc.reply(
+            'Messaging you to request an OAuth token for the %s user' %
+            self.login_user)
+        self.irc.queueMsg(
+            ircmsgs.privmsg(
+                msg.nick,
+                "In order to access the event stream an OAuth token is required.")) #noqa
+        self.irc.queueMsg(
+            ircmsgs.privmsg(
+                msg.nick,
+                "Login to github with the appropriate user, and click 'Create new token' on https://github.com/settings/applications")) #noqa
+        self.irc.queueMsg(
+            ircmsgs.privmsg(
+                msg.nick,
+                "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <token>'" %
+                self.login_user))
 
     def start_polling(self):
         self.api_session.headers['Authorization'] = 'token %s' % self.token
         print "Starting job %s" % self.job_name
-        schedule.addPeriodicEvent(self.fetch_updates, self.update_interval, now=True, name=self.job_name)
+        schedule.addPeriodicEvent(
+            self.fetch_updates,
+            self.update_interval,
+            now=True,
+            name=self.job_name)
 
     def stop_polling(self):
         print "Stopping job %s" % self.job_name
@@ -172,31 +187,36 @@ class Subscription(object):
             logging.debug("Received 304 Not Modified from Github.")
             return
         else:
-            err = 'Unable to retrieve updates for %s, error: %s (%s)' % (self.subscription, r.text, r.reason)
+            err = 'Unable to retrieve updates for %s, error: %s (%s)' % (
+                self.subscription, r.text, r.reason)
             log.error('GEA: %s' % err)
             msg = ircmsgs.privmsg(self.subscriptions.channel, err)
             self.irc.queueMsg(msg)
 
     def announce_updates(self, updates):
-        '''Takes list of Event updates from GitHub, handles or discards event as configured'''
+        '''Takes list of Event updates from GitHub, handles or discards event
+            as configured'''
         sa = SubscriptionAnnouncer()
 
         updates = sorted(updates, key=lambda x: x['created_at'])
 
         for event in updates:
-            #pp.pprint(event)
+            # pp.pprint(event)
             print "Saw a %s event" % event['type']
             if 'created_at' in event:
-                print "** Got a created at of %s" %  event['created_at']
-                e_dt = datetime.datetime.strptime(event['created_at'],'%Y-%m-%dT%H:%M:%SZ')
+                print "** Got a created at of %s" % event['created_at']
+                e_dt = datetime.datetime.strptime(
+                    event['created_at'],
+                    '%Y-%m-%dT%H:%M:%SZ')
                 if e_dt > self.latest_event_dt:
                     print "** Latest seen event: %s" % e_dt
                     self.latest_event_dt = e_dt
                     try:
                         f = getattr(SubscriptionAnnouncer, event['type'])
                         f(sa, self, event)
-                    except AttributeError, e:
+                    except AttributeError:
                         log.error("Unhandled event type %s" % (event['type']))
+
 
 class SubscriptionAnnouncer:
 
@@ -206,14 +226,15 @@ class SubscriptionAnnouncer:
     # TODO handle PullRequestReviewCommentEvent
     def CreateEvent(self, sub, e):
 
-        (a,p,r) = self._mkdicts('apr',e)
+        (a, p, r) = self._mkdicts('apr', e)
 
         try:
             if e['payload']['ref_type'] == 'repository':
                 msg = "%s created new repository %s" % (a['login'], r['name'])
             else:
-                msg = "[%s] %s created new %s '%s'" % (r['name'], a['login'], p['ref_type'], p['ref'])
-        except KeyError, err:
+                msg = "[%s] %s created new %s '%s'" % \
+                    (r['name'], a['login'], p['ref_type'], p['ref'])
+        except KeyError as err:
             print "Got KeyError: %s" % err
             print e
             msg = "GEA: Failed to parse"
@@ -224,13 +245,15 @@ class SubscriptionAnnouncer:
 
     def PullRequestEvent(self, sub, e):
 
-        (a,p,r) = self._mkdicts('apr',e)
+        (a, p, r) = self._mkdicts('apr', e)
         pr = p['pull_request']
 
         # TODO display closing comment if available
         try:
-            msg = "[%s] %s %s pull request \"%s\" (%s)" % (r['name'], a['login'], p['action'].upper(), pr['title'], pr['_links']['html']['href'])
-        except KeyError, err:
+            msg = "[%s] %s %s pull request \"%s\" (%s)" % \
+                (r['name'], a['login'], p['action'].upper(), pr['title'],
+                 pr['_links']['html']['href'])
+        except KeyError as err:
             print "Got KeyError: %s" % err
             print p
             msg = "GEA: Failed to parse event"
@@ -241,16 +264,18 @@ class SubscriptionAnnouncer:
     def PushEvent(self, sub, e):
         # Meh, just spam
         # Scratch that, now broken
-        # TODO was it broken? or was it due to screen being in copy mode for that process?
+        # TODO was it broken? or was it due to screen being in copy mode for
+        # that process?
         return
 
         global pp
         pp.pprint(e)
-        (a,p,r) = self._mkdicts('apr',e)
+        (a, p, r) = self._mkdicts('apr', e)
 
         try:
-            msg = "%s pushed %d commits to %s:" % (a['login'],p['size'],r['name'])
-        except KeyError, err:
+            msg = "%s pushed %d commits to %s:" % \
+                (a['login'], p['size'], r['name'])
+        except KeyError as err:
             print "Got KeyError: %s" % err
             print p
             msg = "GEA: Failed to parse event"
@@ -266,7 +291,7 @@ class SubscriptionAnnouncer:
             sub.irc.queueMsg(qmsg)
 
     def _mkdicts(self, flags, event):
-        mapping = { 'a': 'actor', 'p': 'payload', 'r': 'repo' }
+        mapping = {'a': 'actor', 'p': 'payload', 'r': 'repo'}
         dicts = []
         for c in str(flags):
             if c in mapping:
