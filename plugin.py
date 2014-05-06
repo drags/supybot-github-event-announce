@@ -86,14 +86,14 @@ class GitEventAnnounce(callbacks.Plugin):
         if len(self.subscriptions) > 0:
             for s in self.subscriptions:
                 irc.reply("Active subscriptions:")
-                pp.pprint(self.subscriptions[s])
+                logging.debug(pp.pformat(self.subscriptions[s]))
                 irc.reply(str(s))
         else:
             irc.reply('No active subscriptions')
         if len(self.pending_subscriptions) > 0:
             irc.reply("Pending subscriptions:")
             for s in self.pending_subscriptions:
-                pp.pprint(self.pending_subscriptions[s])
+                logging.debug(pp.pformat(self.pending_subscriptions[s]))
                 irc.reply(str(s))
     listsubs = wrap(listsubs)
 
@@ -129,7 +129,7 @@ class Subscription(object):
         self.api_session.headers['content-type'] = 'application/json'
         self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
-        print "Init'ing job name %s" % self.job_name
+        logging.info("Init'ing job name %s" % self.job_name)
         global pp
 
     def __str__(self):
@@ -157,7 +157,7 @@ class Subscription(object):
 
     def start_polling(self):
         self.api_session.headers['Authorization'] = 'token %s' % self.token
-        print "Starting job %s" % self.job_name
+        logging.info("Starting job %s" % self.job_name)
         schedule.addPeriodicEvent(
             self.fetch_updates,
             self.update_interval,
@@ -165,7 +165,7 @@ class Subscription(object):
             name=self.job_name)
 
     def stop_polling(self):
-        print "Stopping job %s" % self.job_name
+        logging.info("Stopping job %s" % self.job_name)
         schedule.removeEvent(self.job_name)
 
     def fetch_updates(self):
@@ -178,7 +178,7 @@ class Subscription(object):
         # Update ETag to keep position
         if r.ok:
             if 'etag' in r.headers:
-                print "Got etag %s" % r.headers['etag']
+                logging.debug("Got etag %s" % r.headers['etag'])
                 self.api_session.headers['If-None-Match'] = r.headers['etag']
             self.announce_updates(r.json)
 
@@ -198,18 +198,22 @@ class Subscription(object):
             as configured'''
         sa = SubscriptionAnnouncer()
 
+        # requests made .json a callable instead of an attr in 1.0.0
+        if hasattr(updates, '__call__'):
+            updates = updates()
+
         updates = sorted(updates, key=lambda x: x['created_at'])
 
         for event in updates:
             # pp.pprint(event)
-            print "Saw a %s event" % event['type']
+            logging.debug("Saw a %s event" % event['type'])
             if 'created_at' in event:
-                print "** Got a created at of %s" % event['created_at']
+                logging.debug("** Got created at %s" % event['created_at'])
                 e_dt = datetime.datetime.strptime(
                     event['created_at'],
                     '%Y-%m-%dT%H:%M:%SZ')
                 if e_dt > self.latest_event_dt:
-                    print "** Latest seen event: %s" % e_dt
+                    logging.debug("** Latest seen event: %s" % e_dt)
                     self.latest_event_dt = e_dt
                     try:
                         f = getattr(SubscriptionAnnouncer, event['type'])
@@ -235,12 +239,12 @@ class SubscriptionAnnouncer:
                 msg = "[%s] %s created new %s '%s'" % \
                     (r['name'], a['login'], p['ref_type'], p['ref'])
         except KeyError as err:
-            print "Got KeyError: %s" % err
-            print e
+            logging.info("Got KeyError: %s" % err)
+            logging.info(e)
             msg = "GEA: Failed to parse"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
-        print "Queueing createEvent msg %s" % qmsg
+        logging.debug("Queueing createEvent msg %s" % qmsg)
         sub.irc.queueMsg(qmsg)
 
     def PullRequestEvent(self, sub, e):
@@ -254,8 +258,8 @@ class SubscriptionAnnouncer:
                 (r['name'], a['login'], p['action'].upper(), pr['title'],
                  pr['_links']['html']['href'])
         except KeyError as err:
-            print "Got KeyError: %s" % err
-            print p
+            logging.error("Got KeyError: %s" % err)
+            logging.debug(p)
             msg = "GEA: Failed to parse event"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
@@ -269,15 +273,15 @@ class SubscriptionAnnouncer:
         return
 
         global pp
-        pp.pprint(e)
+        logging.debug(pp.pformat(e))
         (a, p, r) = self._mkdicts('apr', e)
 
         try:
             msg = "%s pushed %d commits to %s:" % \
                 (a['login'], p['size'], r['name'])
         except KeyError as err:
-            print "Got KeyError: %s" % err
-            print p
+            logging.error("Got KeyError: %s" % err)
+            logging.debug(p)
             msg = "GEA: Failed to parse event"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
