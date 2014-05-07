@@ -48,7 +48,9 @@ class GitEventAnnounce(callbacks.Plugin):
         '''Add an event stream to watch: args(github_user, type, name)'''
         # TODO add 404 checking to ensure repo/org/etc exists
         if sub_type not in Subscription.sub_types:
+            known_types = ', '.join(Subscription.sub_types.keys())
             irc.reply('Unknown subscription type: %s' % (sub_type))
+            irc.reply('Subscription type should be one of: %s' % (known_types))
             return
 
         sub = Subscription(irc, msg, login_user, sub_type, target)
@@ -106,10 +108,12 @@ Class = GitEventAnnounce
 
 class Subscription(object):
     sub_types = {
-        'user': 'https://api.github.com/users/%(target)s/events', 'repository':
+        'user': 'https://api.github.com/users/%(target)s/events',
+        'repository':
         'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
         'organization':
-        'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s', }
+        'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s',
+    }
 
     # TODO ##update_interval = 90
     update_interval = 60
@@ -148,7 +152,7 @@ class Subscription(object):
         self.irc.queueMsg(
             ircmsgs.privmsg(
                 msg.nick,
-                "In order to access the event stream an OAuth token is required.")) #noqa
+                "In order to access the %s event stream of %s as user %s an OAuth token is required." % (self.sub_type, self.target, self.login_user))) #noqa
         self.irc.queueMsg(
             ircmsgs.privmsg(
                 msg.nick,
