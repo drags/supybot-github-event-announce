@@ -1,6 +1,20 @@
 TODO:
-- deletesub
-- Deal in OAUTH TOKENS only, rather than user messaging login, message user curl command for generating a token
+x- Deal in OAUTH TOKENS only, rather than user messaging login, message user curl command for generating a token
+x- listsubs output when 0 subs configured
+x- listsubs outputs header for each sub
+x- check if we already have a token for as_user and re-use
+x- added subs where authorization already present must complete auth flow (symptom: not showing up in listsubs)
+x- "In order to access the event stream" of?
+x- "Unknown subscription type" add possible options
+x- whine if target for 'addsub <user> repo <target>' doesn't have /
+x- logging.debug all prints
+- persistent storage
+    - known subs
+    - auths?
+- delsub
+- listauths
+- delauth
+- better help output
 
 
 Config:
