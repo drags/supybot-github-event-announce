@@ -157,7 +157,7 @@ class Subscription(object):
         if sub_type == 'repository':
             if target.find('/') == -1:
                 irc.reply(
-                    'For repositories the target should be <username>/<repo>')
+                    'For repositories the target must be in the form <username>/<repo>') #noqa
                 raise ValueError('Failed to split target') #noqa
             (target_user, target_repo) = target.split('/')
 
@@ -172,12 +172,21 @@ class Subscription(object):
         self.api_session.headers['content-type'] = 'application/json'
         self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
+
+        # Test validity
+        self.validate_sub()
         logging.info("Init'ing job name %s" % self.job_name)
         global pp
 
     def __str__(self):
         '''[type] user@url'''
         return "[%s] %s@%s" % (self.sub_type, self.login_user, self.url)
+
+    def validate_sub(self):
+        r = self.api_session.get(self.url)
+        if not r.ok:
+            self.irc.reply("Failed to load %s. Got error code: %d, msg: %s" % (self, r.status_code, r.reason))
+            raise ValueError("Failed to load %s. Got error code: %d, msg: %s" % (self, r.status_code, r.reason))
 
     def _authorize(self, msg):
         '''Ask user for an OAuth token.'''
@@ -231,7 +240,7 @@ class Subscription(object):
             return
         else:
             err = 'Unable to retrieve updates for %s, error: %s (%s)' % (
-                self.subscription, r.text, r.reason)
+                self, r.text, r.reason)
             log.error('GEA: %s' % err)
             msg = ircmsgs.privmsg(self.subscriptions.channel, err)
             self.irc.queueMsg(msg)
