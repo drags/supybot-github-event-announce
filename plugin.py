@@ -72,6 +72,36 @@ class GitEventAnnounce(callbacks.Plugin):
             sub._authorize(msg)
     addsub = wrap(addsub, ['something', 'something', 'something'])
 
+    def delsub(self, irc, msg, args, login_user, sub_type, target):
+        '''Delete a subscription: args(github_user, type, name)'''
+        if sub_type not in Subscription.sub_types:
+            known_types = ', '.join(Subscription.sub_types.keys())
+            irc.reply('Unknown subscription type: %s' % (sub_type))
+            irc.reply('Subscription type should be one of: %s' % (known_types))
+            return
+
+        # create temp sub to match on __str__
+        try:
+            sub_to_delete = Subscription(irc, msg, login_user, sub_type,
+                                         target)
+        except ValueError:
+            # assume anything that raises a valueerror will reply on its own
+            return
+
+        sub_found = False
+        for sub_list in [self.subscriptions, self.pending_subscriptions]:
+            if str(sub_to_delete) in sub_list:
+                sub_found = True
+                irc.reply('Removing subscription %s' % (sub_to_delete))
+                sub_list[str(sub_to_delete)].stop_polling()
+                del(sub_list[str(sub_to_delete)])
+
+        if not sub_found:
+            irc.reply('Sub %s was not found.' % sub_to_delete)
+
+        # TODO cleanup self.authorizations
+    delsub = wrap(delsub, ['something', 'something', 'something'])
+
     def authorize(self, irc, msg, args, username, token):
         '''Accept an OAuth token'''
         self._auth_with_token(username, token)
