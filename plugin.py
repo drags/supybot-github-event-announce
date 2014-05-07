@@ -53,7 +53,11 @@ class GitEventAnnounce(callbacks.Plugin):
             irc.reply('Subscription type should be one of: %s' % (known_types))
             return
 
-        sub = Subscription(irc, msg, login_user, sub_type, target)
+        try:
+            sub = Subscription(irc, msg, login_user, sub_type, target)
+        except ValueError:
+            # assume anything that raises a valueerror will reply on its own
+            return
 
         if str(sub) in self.subscriptions:
             irc.reply('The subscription %s already exists' % sub)
@@ -121,9 +125,10 @@ class Subscription(object):
 
     def __init__(self, irc, msg, login_user, sub_type, target):
         if sub_type == 'repository':
-            if not target.find('/'):
+            if target.find('/') == -1:
                 irc.reply(
                     'For repositories the target should be <username>/<repo>')
+                raise ValueError('Failed to split target') #noqa
             (target_user, target_repo) = target.split('/')
 
         url = str(Subscription.sub_types[sub_type]) % locals()
