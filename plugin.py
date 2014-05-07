@@ -1,16 +1,14 @@
-###
+####################################
 # Github Event Announcer
 #
 # Because the firehose is delicious.
-#
-###
+####################################
 # system
-
 import requests
 import datetime
 
 # SupyBot
-from supybot.commands import *
+from supybot.commands import * #noqa
 import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
@@ -58,19 +56,24 @@ class GitEventAnnounce(callbacks.Plugin):
         if str(sub) in self.subscriptions:
             irc.reply('The subscription %s already exists' % sub)
             return
+        self.pending_subscriptions[str(sub)] = sub
 
         irc.reply('Adding %s' % (sub))
+
         if login_user in self.authorizations:
-            sub.token = self.authorizations[login_user]['token']
-            sub.start_polling()
+            self._auth_with_token(login_user, self.authorizations[login_user])
         else:
-            self.pending_subscriptions[str(sub)] = sub
             sub._authorize(msg)
     addsub = wrap(addsub, ['something', 'something', 'something'])
 
     def authorize(self, irc, msg, args, username, token):
         '''Accept an OAuth token'''
-        # TODO test if token works
+        self._auth_with_token(username, token)
+    authorize = wrap(authorize, ['something', 'something'])
+
+    def _auth_with_token(self, username, token):
+        '''Finish OAuth handshake and init job'''
+        # TODO test if token works/ has acceptable scope
         for (name, sub) in self.pending_subscriptions.items():
             if sub.login_user == username:
                 sub.token = token
@@ -78,14 +81,15 @@ class GitEventAnnounce(callbacks.Plugin):
                 self.subscriptions[name] = sub
                 del(self.pending_subscriptions[name])
 
-    authorize = wrap(authorize, ['something', 'something'])
+        # Add/update token to known token list
+        self.authorizations[username] = token
 
     def listsubs(self, irc, msg, args):
         '''List configured subscriptions'''
         global pp
         if len(self.subscriptions) > 0:
+            irc.reply("Active subscriptions:")
             for s in self.subscriptions:
-                irc.reply("Active subscriptions:")
                 logging.debug(pp.pformat(self.subscriptions[s]))
                 irc.reply(str(s))
         else:
