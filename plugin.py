@@ -96,7 +96,7 @@ class GitEventAnnounce(callbacks.Plugin):
                 sub_list[str(sub_to_delete)].stop_polling()
                 del(sub_list[str(sub_to_delete)])
 
-        if not sub_found:
+        if sub_found is False:
             irc.reply('Sub %s was not found.' % sub_to_delete)
 
         # TODO cleanup self.authorizations
@@ -185,8 +185,10 @@ class Subscription(object):
     def validate_sub(self):
         r = self.api_session.get(self.url)
         if not r.ok:
-            self.irc.reply("Failed to load %s. Got error code: %d, msg: %s" % (self, r.status_code, r.reason))
-            raise ValueError("Failed to load %s. Got error code: %d, msg: %s" % (self, r.status_code, r.reason))
+            emsg = "Failed to load %s. Got error code: %d, msg: %s" % \
+                (self, r.status_code, r.reason)
+            self.irc.reply(emsg)
+            raise ValueError(emsg)
 
     def _authorize(self, msg):
         '''Ask user for an OAuth token.'''
@@ -218,7 +220,11 @@ class Subscription(object):
 
     def stop_polling(self):
         logging.info("Stopping job %s" % self.job_name)
-        schedule.removeEvent(self.job_name)
+        try:
+            schedule.removeEvent(self.job_name)
+        except KeyError:
+            logging.error('Attempted to stop nonexistant job: %s' %
+                          self.job_name)
 
     def fetch_updates(self):
         r = self.api_session.get(self.url)
