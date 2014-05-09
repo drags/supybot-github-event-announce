@@ -53,8 +53,9 @@ class GitEventAnnounce(callbacks.Plugin):
             irc.reply('Subscription type should be one of: %s' % (known_types))
             return
 
+        channel = msg.args[0]
         try:
-            sub = Subscription(irc, msg, login_user, sub_type, target)
+            sub = Subscription(irc, channel, login_user, sub_type, target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
             return
@@ -81,8 +82,9 @@ class GitEventAnnounce(callbacks.Plugin):
             return
 
         # create temp sub to match on __str__
+        channel = msg.args[0]
         try:
-            sub_to_delete = Subscription(irc, msg, login_user, sub_type,
+            sub_to_delete = Subscription(irc, channel, login_user, sub_type,
                                          target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
@@ -153,7 +155,7 @@ class Subscription(object):
     update_interval = 60
     minimum_update_interval = 60
 
-    def __init__(self, irc, msg, login_user, sub_type, target):
+    def __init__(self, irc, channel, login_user, sub_type, target):
         if sub_type == 'repository':
             if target.find('/') == -1:
                 irc.reply(
@@ -163,7 +165,7 @@ class Subscription(object):
 
         url = str(Subscription.sub_types[sub_type]) % locals()
         self.irc = irc
-        self.channel = msg.args[0]
+        self.channel = channel
         self.login_user = login_user
         self.sub_type = sub_type
         self.target = target
