@@ -13,7 +13,10 @@ import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
 import supybot.log as log
+import supybot.conf as conf
 import logging
+import json
+import os
 
 # debug
 import pprint
@@ -33,14 +36,68 @@ class GitEventAnnounce(callbacks.Plugin):
         self.subscriptions = {}
         self.authorizations = {}
         self.irc = irc
+        self.loadsubs(irc)
 
-        # loadsubs()
+    def loadsubs(self, irc):
+        '''Load subscriptions at plugin startup'''
+        # Stored in root of bot 'data' directory
+        subs_file = conf.supybot.directories.data.dirize('git-event-subs.json')
+        if not os.path.exists(subs_file):
+            return False
+        logging.debug('Loading subscriptions %s' % subs_file)
+        with open(subs_file, 'r') as sub_fh:
+            try:
+                sub_data = json.load(sub_fh)
+            except ValueError:
+                logging.error('Failed to load subscription data from %s'
+                              % subs_file)
+                return False
+            for (name, sub) in sub_data.items():
+                new_sub = Subscription(irc, str(sub['channel']),
+                                       str(sub['login_user']),
+                                       str(sub['sub_type']),
+                                       str(sub['target']))
+                # Restore token, etag, last seen
+                new_sub.token = str(sub['token'])
+                new_sub.api_session.headers['If-None-Match'] = sub['etag']
+                latest_event_dt = \
+                    datetime.datetime.fromtimestamp(sub['latest_event'])
+                new_sub.latest_event_dt = latest_event_dt
+
+                # Start job
+                new_sub.start_polling()
+                self.subscriptions[name] = new_sub
+
+    def savesubs(self):
+        if len(self.subscriptions.keys()) < 1:
+            return False
+
+        sub_data = {}
+        for (name, sub) in self.subscriptions.items():
+            sub_data[name] = {
+                'name': name,
+                'channel': sub.channel,
+                'login_user': sub.login_user,
+                'sub_type': sub.sub_type,
+                'target': sub.target,
+                'token': sub.token,
+                'url': sub.url,
+                'job_name': sub.job_name,
+                'etag': sub.api_session.headers.get('If-None-Match', ''),
+                'latest_event': int(sub.latest_event_dt.strftime('%s')),
+            }
+
+        # Stored in root of bot 'data' directory
+        subs_file = conf.supybot.directories.data.dirize('git-event-subs.json')
+        with open(subs_file, 'w') as sub_fh:
+            json.dump(sub_data, sub_fh)
 
     def die(self):
         '''Cleanup polling jobs'''
         # TODO ensure all subscriptions are killed (including 404'd repos)
         for sub in self.subscriptions.values():
             sub.stop_polling()
+        self.savesubs()
 
     # TODO trigger on authorization delete to delete subs which use that auth
 
