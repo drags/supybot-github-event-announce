@@ -12,7 +12,6 @@ from supybot.commands import * #noqa
 import supybot.callbacks as callbacks
 import supybot.schedule as schedule
 import supybot.ircmsgs as ircmsgs
-import supybot.log as log
 import supybot.conf as conf
 import logging
 import json
@@ -21,6 +20,9 @@ import os
 # debug
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
+
+# logs
+logger = logging.getLogger('supybot')
 
 
 class GitEventAnnounce(callbacks.Plugin):
@@ -44,13 +46,14 @@ class GitEventAnnounce(callbacks.Plugin):
         subs_file = conf.supybot.directories.data.dirize('git-event-subs.json')
         if not os.path.exists(subs_file):
             return False
-        logging.debug('Loading subscriptions %s' % subs_file)
+        logger.debug('Loading subscriptions from %s' % subs_file)
         with open(subs_file, 'r') as sub_fh:
             try:
                 sub_data = json.load(sub_fh)
-            except ValueError:
-                logging.error('Failed to load subscription data from %s'
-                              % subs_file)
+            except ValueError, e:
+                logger.error('Failed to load subscription data from %s' %
+                             subs_file)
+                logging.error('Got error %s' % e)
                 return False
             for (name, sub) in sub_data.items():
                 new_sub = Subscription(irc, str(sub['channel']),
@@ -67,6 +70,11 @@ class GitEventAnnounce(callbacks.Plugin):
                 # Start job
                 new_sub.start_polling()
                 self.subscriptions[name] = new_sub
+
+        # Rebuild authorizations table
+        for (name, sub) in self.subscriptions.items():
+            if sub.login_user not in self.authorizations:
+                self.authorizations[sub.login_user] = sub.token
 
     def savesubs(self):
         if len(self.subscriptions.keys()) < 1:
@@ -180,19 +188,17 @@ class GitEventAnnounce(callbacks.Plugin):
         self.authorizations[username] = token
 
     def listsubs(self, irc, msg, args):
-        '''List configured subscriptions'''
+        '''List known subscriptions'''
         global pp
         if len(self.subscriptions) > 0:
             irc.reply("Active subscriptions:")
             for s in self.subscriptions:
-                logging.debug(pp.pformat(self.subscriptions[s]))
                 irc.reply(str(s))
         else:
             irc.reply('No active subscriptions')
         if len(self.pending_subscriptions) > 0:
             irc.reply("Pending subscriptions:")
             for s in self.pending_subscriptions:
-                logging.debug(pp.pformat(self.pending_subscriptions[s]))
                 irc.reply(str(s))
     listsubs = wrap(listsubs)
 
@@ -234,8 +240,6 @@ class Subscription(object):
 
         # Test validity
         self.validate_sub()
-        logging.info("Init'ing job name %s" % self.job_name)
-        global pp
 
     def __str__(self):
         '''[type] user@url'''
@@ -270,7 +274,7 @@ class Subscription(object):
 
     def start_polling(self):
         self.api_session.headers['Authorization'] = 'token %s' % self.token
-        logging.info("Starting job %s" % self.job_name)
+        logger.info("Starting GEA job %s" % self.job_name)
         schedule.addPeriodicEvent(
             self.fetch_updates,
             self.update_interval,
@@ -278,35 +282,34 @@ class Subscription(object):
             name=self.job_name)
 
     def stop_polling(self):
-        logging.info("Stopping job %s" % self.job_name)
+        logger.info("Stopping GEA job %s" % self.job_name)
         try:
             schedule.removeEvent(self.job_name)
         except KeyError:
-            logging.error('Attempted to stop nonexistant job: %s' %
-                          self.job_name)
+            logger.error('Attempted to stop nonexistant GEA job: %s' %
+                         self.job_name)
 
     def fetch_updates(self):
         r = self.api_session.get(self.url)
-        logging.debug("Request headers")
-        logging.debug(self.api_session.headers)
-        logging.debug("Response headers")
-        logging.debug(r.headers)
+# Way chatty
+#        logger.debug("Request headers")
+#        logger.debug(pp.pformat(self.api_session.headers))
+#        logger.debug("Response headers")
+#        logger.debug(pp.pformat(r.headers))
 
-        # Update ETag to keep position
         if r.ok:
             if 'etag' in r.headers:
-                logging.debug("Got etag %s" % r.headers['etag'])
+                # Update ETag to keep position
                 self.api_session.headers['If-None-Match'] = r.headers['etag']
+            # Handle updates
             self.announce_updates(r.json)
-
         elif r.status_code == 304:
             # No updates since last fetch
-            logging.debug("Received 304 Not Modified from Github.")
             return
         else:
             err = 'Unable to retrieve updates for %s, error: %s (%s)' % (
                 self, r.text, r.reason)
-            log.error('GEA: %s' % err)
+            logger.error('GEA: %s' % err)
             msg = ircmsgs.privmsg(self.subscriptions.channel, err)
             self.irc.queueMsg(msg)
 
@@ -322,21 +325,20 @@ class Subscription(object):
         updates = sorted(updates, key=lambda x: x['created_at'])
 
         for event in updates:
-            # pp.pprint(event)
-            logging.debug("Saw a %s event" % event['type'])
+            #logger.debug(pp.pformat(event))
+            #logger.debug("Saw a %s event" % event['type'])
             if 'created_at' in event:
-                logging.debug("** Got created at %s" % event['created_at'])
+                #logger.debug("** Got created at %s" % event['created_at'])
                 e_dt = datetime.datetime.strptime(
                     event['created_at'],
                     '%Y-%m-%dT%H:%M:%SZ')
                 if e_dt > self.latest_event_dt:
-                    logging.debug("** Latest seen event: %s" % e_dt)
                     self.latest_event_dt = e_dt
                     try:
                         f = getattr(SubscriptionAnnouncer, event['type'])
                         f(sa, self, event)
                     except AttributeError:
-                        log.error("Unhandled event type %s" % (event['type']))
+                        logger.error("Unhandled event type %s" % event['type'])
 
 
 class SubscriptionAnnouncer:
@@ -344,7 +346,6 @@ class SubscriptionAnnouncer:
 #   def __init__():
 #       self.maxcommits = 5
 
-    # TODO handle PullRequestReviewCommentEvent
     def CreateEvent(self, sub, e):
 
         (a, p, r) = self._mkdicts('apr', e)
@@ -356,12 +357,11 @@ class SubscriptionAnnouncer:
                 msg = "[%s] %s created new %s '%s'" % \
                     (r['name'], a['login'], p['ref_type'], p['ref'])
         except KeyError as err:
-            logging.info("Got KeyError: %s" % err)
-            logging.info(e)
-            msg = "GEA: Failed to parse"
+            logger.info("Got KeyError in CreateEvent: %s" % err)
+            logger.info(e)
+            msg = "GEA: Failed to parse event"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
-        logging.debug("Queueing createEvent msg %s" % qmsg)
         sub.irc.queueMsg(qmsg)
 
     def PullRequestEvent(self, sub, e):
@@ -375,8 +375,7 @@ class SubscriptionAnnouncer:
                 (r['name'], a['login'], p['action'].upper(), pr['title'],
                  pr['_links']['html']['href'])
         except KeyError as err:
-            logging.error("Got KeyError: %s" % err)
-            logging.debug(p)
+            logger.error("Got KeyError in PullRequestEvent: %s" % err)
             msg = "GEA: Failed to parse event"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
@@ -390,15 +389,15 @@ class SubscriptionAnnouncer:
         return
 
         global pp
-        logging.debug(pp.pformat(e))
+        logger.debug(pp.pformat(e))
         (a, p, r) = self._mkdicts('apr', e)
 
         try:
             msg = "%s pushed %d commits to %s:" % \
                 (a['login'], p['size'], r['name'])
         except KeyError as err:
-            logging.error("Got KeyError: %s" % err)
-            logging.debug(p)
+            logger.error("Got KeyError: %s" % err)
+            logger.debug(p)
             msg = "GEA: Failed to parse event"
 
         qmsg = ircmsgs.privmsg(sub.channel, msg)
