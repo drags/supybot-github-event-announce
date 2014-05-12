@@ -136,7 +136,8 @@ class GitEventAnnounce(callbacks.Plugin):
             self._auth_with_token(login_user, self.authorizations[login_user])
         else:
             sub._authorize(msg)
-    addsub = wrap(addsub, ['something', 'something', 'something'])
+    addsub = wrap(addsub, ['somethingWithoutSpaces', 'somethingWithoutSpaces',
+                           'somethingWithoutSpaces'])
 
     def delsub(self, irc, msg, args, login_user, sub_type, target):
         '''Delete a subscription: args(github_user, type, name)'''
@@ -167,12 +168,14 @@ class GitEventAnnounce(callbacks.Plugin):
             irc.reply('Sub %s was not found.' % sub_to_delete)
 
         # TODO cleanup self.authorizations
-    delsub = wrap(delsub, ['something', 'something', 'something'])
+    delsub = wrap(delsub, ['somethingWithoutSpaces', 'somethingWithoutSpaces',
+                           'somethingWithoutSpaces'])
 
     def authorize(self, irc, msg, args, username, token):
         '''Accept an OAuth token'''
         self._auth_with_token(username, token)
-    authorize = wrap(authorize, ['something', 'something'])
+    authorize = wrap(authorize, ['somethingWithoutSpaces',
+                                 'somethingWithoutSpaces'])
 
     def _auth_with_token(self, username, token):
         '''Finish OAuth handshake and init job'''
