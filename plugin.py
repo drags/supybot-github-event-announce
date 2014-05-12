@@ -56,8 +56,8 @@ class GitEventAnnounce(callbacks.Plugin):
                 logging.error('Got error %s' % e)
                 return False
             for (name, sub) in sub_data.items():
-                new_sub = Subscription(irc, str(sub['channel']),
-                                       str(sub['login_user']),
+                channels = [str(x) for x in sub['channels']]
+                new_sub = Subscription(irc, channels, str(sub['login_user']),
                                        str(sub['sub_type']),
                                        str(sub['target']))
                 # Restore token, etag, last seen
@@ -84,7 +84,7 @@ class GitEventAnnounce(callbacks.Plugin):
         for (name, sub) in self.subscriptions.items():
             sub_data[name] = {
                 'name': name,
-                'channel': sub.channel,
+                'channels': sub.channels,
                 'login_user': sub.login_user,
                 'sub_type': sub.sub_type,
                 'target': sub.target,
@@ -120,17 +120,24 @@ class GitEventAnnounce(callbacks.Plugin):
 
         channel = msg.args[0]
         try:
-            sub = Subscription(irc, channel, login_user, sub_type, target)
+            sub = Subscription(irc, [channel], login_user, sub_type, target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
             return
 
         if str(sub) in self.subscriptions:
-            irc.reply('The subscription %s already exists' % sub)
-            return
+            if channel in self.subscriptions[str(sub)].channels:
+                irc.reply('The subscription %s already exists on channel %s' %
+                          (sub, channel))
+                return
+            else:
+                irc.reply('Adding channel %s to existing subscription' %
+                          (channel))
+                self.subscriptions[str(sub)].channels.append(channel)
+                return
         self.pending_subscriptions[str(sub)] = sub
 
-        irc.reply('Adding %s' % (sub))
+        irc.reply('Adding new subscription %s' % (sub))
 
         if login_user in self.authorizations:
             self._auth_with_token(login_user, self.authorizations[login_user])
@@ -150,7 +157,7 @@ class GitEventAnnounce(callbacks.Plugin):
         # create temp sub to match on __str__
         channel = msg.args[0]
         try:
-            sub_to_delete = Subscription(irc, channel, login_user, sub_type,
+            sub_to_delete = Subscription(irc, [channel], login_user, sub_type,
                                          target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
@@ -159,10 +166,15 @@ class GitEventAnnounce(callbacks.Plugin):
         sub_found = False
         for sub_list in [self.subscriptions, self.pending_subscriptions]:
             if str(sub_to_delete) in sub_list:
-                sub_found = True
-                irc.reply('Removing subscription %s' % (sub_to_delete))
-                sub_list[str(sub_to_delete)].stop_polling()
-                del(sub_list[str(sub_to_delete)])
+                mysub = sub_list[str(sub_to_delete)]
+                if channel in mysub.channels:
+                    sub_found = True
+                    irc.reply('Removing subscription %s from channel %s' %
+                              (sub_to_delete, channel))
+                    mysub.channels.remove(channel)
+                    if len(mysub.channels) < 1:
+                        mysub.stop_polling()
+                        del(sub_list[str(sub_to_delete)])
 
         if sub_found is False:
             irc.reply('Sub %s was not found.' % sub_to_delete)
@@ -221,7 +233,7 @@ class Subscription(object):
     update_interval = 60
     minimum_update_interval = 60
 
-    def __init__(self, irc, channel, login_user, sub_type, target):
+    def __init__(self, irc, channels, login_user, sub_type, target):
         if sub_type == 'repository':
             if target.find('/') == -1:
                 irc.reply(
@@ -231,7 +243,7 @@ class Subscription(object):
 
         url = str(Subscription.sub_types[sub_type]) % locals()
         self.irc = irc
-        self.channel = channel
+        self.channels = channels
         self.login_user = login_user
         self.sub_type = sub_type
         self.target = target
@@ -313,8 +325,9 @@ class Subscription(object):
             err = 'Unable to retrieve updates for %s, error: %s (%s)' % (
                 self, r.text, r.reason)
             logger.error('GEA: %s' % err)
-            msg = ircmsgs.privmsg(self.subscriptions.channel, err)
-            self.irc.queueMsg(msg)
+            for ch in self.channels:
+                msg = ircmsgs.privmsg(ch, err)
+                self.irc.queueMsg(msg)
 
     def announce_updates(self, updates):
         '''Takes list of Event updates from GitHub, handles or discards event
@@ -349,8 +362,12 @@ class SubscriptionAnnouncer:
 #   def __init__():
 #       self.maxcommits = 5
 
-    def CreateEvent(self, sub, e):
+    def send_messages(self, sub, msg):
+        for chan in sub.channels:
+            qmsg = ircmsgs.privmsg(chan, msg)
+            sub.irc.queueMsg(qmsg)
 
+    def CreateEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
 
         try:
@@ -363,9 +380,7 @@ class SubscriptionAnnouncer:
             logger.info("Got KeyError in CreateEvent: %s" % err)
             logger.info(e)
             msg = "GEA: Failed to parse event"
-
-        qmsg = ircmsgs.privmsg(sub.channel, msg)
-        sub.irc.queueMsg(qmsg)
+        self.send_messages(sub, msg)
 
     def PullRequestEvent(self, sub, e):
 
@@ -380,9 +395,7 @@ class SubscriptionAnnouncer:
         except KeyError as err:
             logger.error("Got KeyError in PullRequestEvent: %s" % err)
             msg = "GEA: Failed to parse event"
-
-        qmsg = ircmsgs.privmsg(sub.channel, msg)
-        sub.irc.queueMsg(qmsg)
+        self.send_messages(sub, msg)
 
     def PushEvent(self, sub, e):
         # Meh, just spam
@@ -402,16 +415,14 @@ class SubscriptionAnnouncer:
             logger.error("Got KeyError: %s" % err)
             logger.debug(p)
             msg = "GEA: Failed to parse event"
-
-        qmsg = ircmsgs.privmsg(sub.channel, msg)
-        sub.irc.queueMsg(qmsg)
+        self.send_messages(sub, msg)
 
         # Print shortlogs for commits
         commits = p['commits'].reverse()
         for i in xrange(1, self.maxcommits):
             commit = commits.pop()
             qmsg = "[%s] %s" % (commit.sha[0:7], commit.message)
-            sub.irc.queueMsg(qmsg)
+            self.send_messages(sub, qmsg)
 
     def _mkdicts(self, flags, event):
         mapping = {'a': 'actor', 'p': 'payload', 'r': 'repo'}
