@@ -202,20 +202,22 @@ class GitEventAnnounce(callbacks.Plugin):
         # Add/update token to known token list
         self.authorizations[username] = token
 
-    def listsubs(self, irc, msg, args):
+    def listsubs(self, irc, msg, args, channel):
         '''List known subscriptions'''
         global pp
         if len(self.subscriptions) > 0:
             irc.reply("Active subscriptions:")
-            for s in self.subscriptions:
-                irc.reply(str(s))
+            for (name, sub) in self.subscriptions.items():
+                if channel in sub.channels:
+                    irc.reply(name)
         else:
             irc.reply('No active subscriptions')
         if len(self.pending_subscriptions) > 0:
             irc.reply("Pending subscriptions:")
-            for s in self.pending_subscriptions:
-                irc.reply(str(s))
-    listsubs = wrap(listsubs)
+            for (name, sub) in self.pending_subscriptions.items():
+                if channel in sub.channels:
+                    irc.reply(name)
+    listsubs = wrap(listsubs, ['channel'])
 
 Class = GitEventAnnounce
 
@@ -343,18 +345,17 @@ class Subscription(object):
         for event in updates:
             #logger.debug(pp.pformat(event))
             #logger.debug("Saw a %s event" % event['type'])
-            if 'created_at' in event:
-                #logger.debug("** Got created at %s" % event['created_at'])
-                e_dt = datetime.datetime.strptime(
-                    event['created_at'],
-                    '%Y-%m-%dT%H:%M:%SZ')
-                if e_dt > self.latest_event_dt:
-                    self.latest_event_dt = e_dt
-                    try:
-                        f = getattr(SubscriptionAnnouncer, event['type'])
-                        f(sa, self, event)
-                    except AttributeError:
-                        logger.error("Unhandled event type %s" % event['type'])
+            #logger.debug("** Got created at %s" % event['created_at'])
+            e_dt = datetime.datetime.strptime(
+                event['created_at'],
+                '%Y-%m-%dT%H:%M:%SZ')
+            if e_dt > self.latest_event_dt:
+                self.latest_event_dt = e_dt
+                try:
+                    f = getattr(SubscriptionAnnouncer, event['type'])
+                    f(sa, self, event)
+                except AttributeError:
+                    logger.error("Unhandled event type %s" % event['type'])
 
 
 class SubscriptionAnnouncer:
