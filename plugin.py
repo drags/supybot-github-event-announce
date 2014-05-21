@@ -256,13 +256,15 @@ class Subscription(object):
         self.job_name = 'poll-%s' % str(self)
 
         # Test validity
-        self.validate_sub()
+        # TODO doesn't work for private event streams? fix if possible
+        #self.validate_sub()
 
     def __str__(self):
         '''[type] user@url'''
         return "[%s] %s@%s" % (self.sub_type, self.login_user, self.url)
 
     def validate_sub(self):
+        # TODO doesn't work for private event streams? fix if possible
         r = self.api_session.get(self.url)
         if not r.ok:
             emsg = "Failed to load %s. Got error code: %d, msg: %s" % \
