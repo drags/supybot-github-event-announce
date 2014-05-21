@@ -360,19 +360,11 @@ class Subscription(object):
 
 class SubscriptionAnnouncer:
 
-#   def __init__():
-#       self.maxcommits = 5
-
-    def send_messages(self, sub, msg):
-        for chan in sub.channels:
-            qmsg = ircmsgs.privmsg(chan, msg)
-            sub.irc.queueMsg(qmsg)
-
     def CreateEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
 
         try:
-            if e['payload']['ref_type'] == 'repository':
+            if p['ref_type'] == 'repository':
                 msg = "%s created new repository %s" % (a['login'], r['name'])
             else:
                 msg = "[%s] %s created new %s '%s'" % \
@@ -381,10 +373,9 @@ class SubscriptionAnnouncer:
             logger.info("Got KeyError in CreateEvent: %s" % err)
             logger.info(e)
             msg = "GEA: Failed to parse event"
-        self.send_messages(sub, msg)
+        self._send_messages(sub, msg)
 
     def PullRequestEvent(self, sub, e):
-
         (a, p, r) = self._mkdicts('apr', e)
         pr = p['pull_request']
 
@@ -396,34 +387,41 @@ class SubscriptionAnnouncer:
         except KeyError as err:
             logger.error("Got KeyError in PullRequestEvent: %s" % err)
             msg = "GEA: Failed to parse event"
-        self.send_messages(sub, msg)
+        self._send_messages(sub, msg)
 
     def PushEvent(self, sub, e):
-        # Meh, just spam
-        # Scratch that, now broken
-        # TODO was it broken? or was it due to screen being in copy mode for
-        # that process?
-        return
-
-        global pp
-        logger.debug(pp.pformat(e))
         (a, p, r) = self._mkdicts('apr', e)
-
         try:
             msg = "%s pushed %d commits to %s:" % \
                 (a['login'], p['size'], r['name'])
         except KeyError as err:
-            logger.error("Got KeyError: %s" % err)
+            logger.error("Got KeyError in PushEvent: %s" % err)
             logger.debug(p)
             msg = "GEA: Failed to parse event"
-        self.send_messages(sub, msg)
-
+        self._send_messages(sub, msg)
         # Print shortlogs for commits
         commits = p['commits'].reverse()
-        for i in xrange(1, self.maxcommits):
+        for i in xrange(5):
             commit = commits.pop()
             qmsg = "[%s] %s" % (commit.sha[0:7], commit.message)
-            self.send_messages(sub, qmsg)
+            self._send_messages(sub, qmsg)
+
+    def IssuesEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        i = p['issue']
+        try:
+            msg = "[%s] %s %s issue \"%s\" [%s]" % (r['name'], a['login'],
+                                                    p['action'].upper(),
+                                                    i['title'], i['url'])
+        except:
+            logger.error("Got KeyError in PullRequestEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg)
+
+    def _send_messages(self, sub, msg):
+        for chan in sub.channels:
+            qmsg = ircmsgs.privmsg(chan, msg)
+            sub.irc.queueMsg(qmsg)
 
     def _mkdicts(self, flags, event):
         mapping = {'a': 'actor', 'p': 'payload', 'r': 'repo'}
