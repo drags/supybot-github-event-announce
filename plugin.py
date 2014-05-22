@@ -53,7 +53,7 @@ class GitEventAnnounce(callbacks.Plugin):
             except ValueError, e:
                 logger.error('Failed to load subscription data from %s' %
                              subs_file)
-                logging.error('Got error %s' % e)
+                logger.error('Got error %s' % e)
                 return False
             for (name, sub) in sub_data.items():
                 channels = [str(x) for x in sub['channels']]
@@ -310,11 +310,11 @@ class Subscription(object):
 
     def fetch_updates(self):
         r = self.api_session.get(self.url)
-# Way chatty
-#        logger.debug("Request headers")
-#        logger.debug(pp.pformat(self.api_session.headers))
-#        logger.debug("Response headers")
-#        logger.debug(pp.pformat(r.headers))
+        # Way chatty
+        # logger.debug("Request headers")
+        # logger.debug(pp.pformat(self.api_session.headers))
+        # logger.debug("Response headers")
+        # logger.debug(pp.pformat(r.headers))
 
         if r.ok:
             if 'etag' in r.headers:
