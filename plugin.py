@@ -394,20 +394,23 @@ class SubscriptionAnnouncer:
 
     def PushEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
-        try:
-            msg = "%s pushed %d commits to %s:" % \
-                (a['login'], p['size'], r['name'])
-        except KeyError as err:
-            logger.error("Got KeyError in PushEvent: %s" % err)
-            logger.debug(p)
-            msg = "GEA: Failed to parse event"
-        self._send_messages(sub, msg)
+        #try:
+        #    msg = "%s pushed %d commits to %s:" % \
+        #        (a['login'], p['size'], r['name'])
+        #except KeyError as err:
+        #    logger.error("Got KeyError in PushEvent: %s" % err)
+        #    msg = "GEA: Failed to parse event"
+        #    return
+        #self._send_messages(sub, msg, 'PushEvent')
         # Print shortlogs for commits
-        commits = p['commits'].reverse()
-        for i in xrange(5):
+        commits = p['commits']
+        commits.reverse()
+
+        for i in xrange(min(len(commits), 5)):
             commit = commits.pop()
-            qmsg = "[%s] %s" % (commit.sha[0:7], commit.message)
-            self._send_messages(sub, qmsg)
+            commit_msg = commit['message'].split('\n')[0][0:50]
+            qmsg = "[%s] commit: %s - %s [%s]" % (r['name'], commit['sha'][0:8], commit_msg, commit['author']['name'])
+            self._send_messages(sub, qmsg, 'PushEvent')
 
     def IssuesEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
