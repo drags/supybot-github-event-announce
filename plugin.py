@@ -381,6 +381,21 @@ class SubscriptionAnnouncer:
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'CreateEvent')
 
+    def DeleteEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+
+        try:
+            if p['ref_type'] == 'repository':
+                msg = "%s deleted repository %s" % (a['login'], r['name'])
+            else:
+                msg = "[%s] %s deleted %s '%s'" % \
+                    (r['name'], a['login'], p['ref_type'], p['ref'])
+        except KeyError as err:
+            logger.info("Got KeyError in DeleteEvent: %s" % err)
+            logger.info(e)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'DeleteEvent')
+
     def PullRequestEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
         pr = p['pull_request']
@@ -421,11 +436,24 @@ class SubscriptionAnnouncer:
         try:
             msg = "[%s] %s %s issue \"%s\" [%s]" % (r['name'], a['login'],
                                                     p['action'].upper(),
-                                                    i['title'], i['url'])
+                                                    i['title'], i['html_url'])
         except:
-            logger.error("Got KeyError in PullRequestEvent: %s" % err)
+            logger.error("Got KeyError in IssuesEvent: %s" % err)
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'IssuesEvent')
+
+    def IssueCommentEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        i = p['issue']
+        c = p['comment']
+        first_line = c['body'].split('\n')[0][0:100]
+        try:
+            msg = '[%s] %s commented on %s "%s"' % \
+                (r['name'], c['user']['login'], i['html_url'], first_line)
+        except:
+            logger.error("Got KeyError in IssueCommentEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'IssueCommentEvent')
 
     def _send_messages(self, sub, msg, type):
         for chan in sub.channels:
