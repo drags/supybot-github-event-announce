@@ -144,7 +144,8 @@ class GitEventAnnounce(callbacks.Plugin):
             self._auth_with_token(login_user, self.authorizations[login_user])
         else:
             sub._authorize(msg)
-    addsub = wrap(addsub, ['somethingWithoutSpaces', 'somethingWithoutSpaces',
+    addsub = wrap(addsub, [('checkCapability', 'admin'),
+                           'somethingWithoutSpaces', 'somethingWithoutSpaces',
                            'somethingWithoutSpaces'])
 
     def delsub(self, irc, msg, args, login_user, sub_type, target):
@@ -181,7 +182,8 @@ class GitEventAnnounce(callbacks.Plugin):
             irc.reply('Sub %s was not found.' % sub_to_delete)
 
         # TODO cleanup self.authorizations
-    delsub = wrap(delsub, ['somethingWithoutSpaces', 'somethingWithoutSpaces',
+    delsub = wrap(delsub, [('checkCapability', 'admin'),
+                           'somethingWithoutSpaces', 'somethingWithoutSpaces',
                            'somethingWithoutSpaces'])
 
     def authorize(self, irc, msg, args, username, token):
