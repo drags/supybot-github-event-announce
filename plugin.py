@@ -427,7 +427,9 @@ class SubscriptionAnnouncer:
         for i in xrange(min(len(commits), 5)):
             commit = commits.pop()
             commit_msg = commit['message'].split('\n')[0][0:50]
-            qmsg = "[%s] commit: %s - %s [%s]" % (r['name'], commit['sha'][0:8], commit_msg, commit['author']['name'])
+            qmsg = "[%s] commit: %s - %s [%s]" % \
+                (r['name'], commit['sha'][0:8], commit_msg,
+                 commit['author']['name'])
             self._send_messages(sub, qmsg, 'PushEvent')
 
     def IssuesEvent(self, sub, e):
@@ -464,8 +466,9 @@ class SubscriptionAnnouncer:
                 e = sys.exc_info()
                 logger.error('Failed to get config group for type %s' % (type))
                 logger.error(pp.pformat(e))
+                group = None
 
-            if conf.get(group, chan):
+            if group is None or conf.get(group, chan):
                 qmsg = ircmsgs.privmsg(chan, msg)
                 sub.irc.queueMsg(qmsg)
 
