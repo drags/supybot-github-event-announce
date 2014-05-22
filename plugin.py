@@ -16,6 +16,7 @@ import supybot.conf as conf
 import logging
 import json
 import os
+import sys
 
 # debug
 import pprint
@@ -376,7 +377,7 @@ class SubscriptionAnnouncer:
             logger.info("Got KeyError in CreateEvent: %s" % err)
             logger.info(e)
             msg = "GEA: Failed to parse event"
-        self._send_messages(sub, msg)
+        self._send_messages(sub, msg, 'CreateEvent')
 
     def PullRequestEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
@@ -390,7 +391,7 @@ class SubscriptionAnnouncer:
         except KeyError as err:
             logger.error("Got KeyError in PullRequestEvent: %s" % err)
             msg = "GEA: Failed to parse event"
-        self._send_messages(sub, msg)
+        self._send_messages(sub, msg, 'PullRequestEvent')
 
     def PushEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
@@ -422,12 +423,21 @@ class SubscriptionAnnouncer:
         except:
             logger.error("Got KeyError in PullRequestEvent: %s" % err)
             msg = "GEA: Failed to parse event"
-        self._send_messages(sub, msg)
+        self._send_messages(sub, msg, 'IssuesEvent')
 
-    def _send_messages(self, sub, msg):
+    def _send_messages(self, sub, msg, type):
         for chan in sub.channels:
-            qmsg = ircmsgs.privmsg(chan, msg)
-            sub.irc.queueMsg(qmsg)
+            try:
+                group = getattr(conf.supybot.plugins.GitEventAnnounce,
+                                'announce%ss' % (type))
+            except:
+                e = sys.exc_info()
+                logger.error('Failed to get config group for type %s' % (type))
+                logger.error(pp.pformat(e))
+
+            if conf.get(group, chan):
+                qmsg = ircmsgs.privmsg(chan, msg)
+                sub.irc.queueMsg(qmsg)
 
     def _mkdicts(self, flags, event):
         mapping = {'a': 'actor', 'p': 'payload', 'r': 'repo'}
