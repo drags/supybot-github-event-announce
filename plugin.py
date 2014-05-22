@@ -355,9 +355,10 @@ class Subscription(object):
                 self.latest_event_dt = e_dt
                 try:
                     f = getattr(SubscriptionAnnouncer, event['type'])
-                    f(sa, self, event)
                 except AttributeError:
                     logger.error("Unhandled event type %s" % event['type'])
+                    continue
+                f(sa, self, event)
 
 
 class SubscriptionAnnouncer:
