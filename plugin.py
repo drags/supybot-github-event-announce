@@ -396,20 +396,6 @@ class SubscriptionAnnouncer:
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'DeleteEvent')
 
-    def PullRequestEvent(self, sub, e):
-        (a, p, r) = self._mkdicts('apr', e)
-        pr = p['pull_request']
-
-        # TODO display closing comment if available
-        try:
-            msg = "[%s] %s %s pull request \"%s\" (%s)" % \
-                (r['name'], a['login'], p['action'].upper(), pr['title'],
-                 pr['_links']['html']['href'])
-        except KeyError as err:
-            logger.error("Got KeyError in PullRequestEvent: %s" % err)
-            msg = "GEA: Failed to parse event"
-        self._send_messages(sub, msg, 'PullRequestEvent')
-
     def PushEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
         #try:
@@ -432,6 +418,20 @@ class SubscriptionAnnouncer:
                  commit['author']['name'])
             self._send_messages(sub, qmsg, 'PushEvent')
 
+    def PullRequestEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        pr = p['pull_request']
+
+        # TODO display closing comment if available
+        try:
+            msg = "[%s] %s %s pull request \"%s\" (%s)" % \
+                (r['name'], a['login'], p['action'].upper(), pr['title'],
+                 pr['_links']['html']['href'])
+        except KeyError as err:
+            logger.error("Got KeyError in PullRequestEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'PullRequestEvent')
+
     def IssuesEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
         i = p['issue']
@@ -439,7 +439,7 @@ class SubscriptionAnnouncer:
             msg = "[%s] %s %s issue \"%s\" [%s]" % (r['name'], a['login'],
                                                     p['action'].upper(),
                                                     i['title'], i['html_url'])
-        except:
+        except KeyError as err:
             logger.error("Got KeyError in IssuesEvent: %s" % err)
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'IssuesEvent')
@@ -452,10 +452,52 @@ class SubscriptionAnnouncer:
         try:
             msg = '[%s] %s commented on %s "%s"' % \
                 (r['name'], c['user']['login'], i['html_url'], first_line)
-        except:
+        except KeyError as err:
             logger.error("Got KeyError in IssueCommentEvent: %s" % err)
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'IssueCommentEvent')
+
+    def MemberEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        try:
+            msg = '[%s] %s %s collaborator %s"' % \
+                (r['name'], a['login'], p['action'], p['member']['login'])
+        except KeyError as err:
+            logger.error("Got KeyError in MemberEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'MemberEvent')
+
+    def TeamAddEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        if 'repository' in p:
+            type = 'repository'
+            # Using shortname (not including owner) since it should always be
+            # the organization that the team belongs to
+            target = p['repository']['name']
+        elif 'user' in p:
+            type = 'user'
+            target = p['user']['login']
+        else:
+            logger.error('Did not find user or repository within TeamAddEvent')
+            return
+
+        try:
+            msg = '[org: %s] %s %s added to team %s' % \
+                (e['org']['login'], type, target, p['team']['name'])
+        except KeyError as err:
+            logger.error("Got KeyError in TeamAddEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'TeamAddEvent')
+
+    def WatchEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        try:
+            msg = '[%s] @%s starred repository %s' % \
+                (r['name'], a['login'], r['name'])
+        except KeyError as err:
+            logger.error("Got KeyError in WatchEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'WatchEvent')
 
     def _send_messages(self, sub, msg, type):
         for chan in sub.channels:
