@@ -1,4 +1,5 @@
 TODO:
+x- Etag polling
 x- Deal in OAUTH TOKENS only, rather than user messaging login, message user curl command for generating a token
 x- listsubs output when 0 subs configured
 x- listsubs outputs header for each sub
@@ -8,93 +9,596 @@ x- "In order to access the event stream" of?
 x- "Unknown subscription type" add possible options
 x- whine if target for 'addsub <user> repo <target>' doesn't have /
 x- logging.debug all prints
-- persistent storage
-    - known subs
-    - auths?
-- delsub
+x- delsub
+x- persistent storage
+    x- known subs
+    x- rebuild self.authorizations from tokens found in saved subs
+x- allow subs in multiple channels
+- per-channel configuration opts for enable/disable event types
 - listauths
 - delauth
 - better help output
+- expand README
+- enable/disable jobs?
+- option git.io(/other/custom?) wrapping for links
+- option to only announce events where public==true
+- obey 'silence' options (per channel and globally)
+- honor github's "no sooner than" response header for scheduler timing
 
 
 Config:
 update interval
-
-
-#--Etag polling
-saving orgs/tokens to persistent storage
-MINIM-FUCKING-AL
-pylint commit hook
+enable/disable different event types per channel
 
 
 Events worth capturing:
 http://developer.github.com/v3/activity/events/types/
-IssuesEvent:
-MemberEvent: (hooray, %s joined the team!)
-PulLRequestEvent:
-PullRequestReviewCommentEvent:
-PushEvent:
+MemberEvent: user added as collaborator to repo
+TeamAddEvent: user or repo added to team
+FollowEvent:
 WatchEvent:
+meh - PullRequestReviewCommentEvent:
 
 
-To start:
+EVENTS:
+=-=-=-=
+
 CreateEvent
-    actor
-        login
-    payload
-        master_branch
-        ref (new branch name)
-        ref_type (repository, branch, tag)
-    repo
-        name
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-12T02:48:08Z',
+    u'id': u'2094082080',
+    u'payload': {u'description': u'Scratch repo for github-event-announce development',
+                u'master_branch': u'master',
+                u'pusher_type': u'user',
+                u'ref': u'branch4',
+                u'ref_type': u'branch'},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'CreateEvent'}
 
     if ref == 'repository':
-        "{actor:login} created new repo {repo:name}"
+        "{a:login} created new repo {r:name}"
     else:
-        "{actor:login} created new {payload:ref_type} '{payload:ref}' on {repo:name}"
+        "[{r:name}] {a:login} created new {p:ref_type} '{p:ref}'"
 
-PullRequestEvent
-    actor
-        login
-    payload
-        pull_request
-            action
-            number
-            title
-            _links
-                html
-            head
-                ref
-            base
-                ref
-    repo
-        name
+DeleteEvent
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-12T01:08:06Z',
+    u'id': u'2094027568',
+    u'payload': {u'pusher_type': u'user',
+                u'ref': u'branch2',
+                u'ref_type': u'branch'},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'DeleteEvent'}
 
-    "{actor:login} {payload:action} pull request {repo:name}/{payload:number} '{payload:title}' [{payload:_links:html}]"
-
-IssueCommentEvent
-    actor
-        login
-    payload
-        comment
-            body
-            url
-            user
-                login
-
-    "{actor:login} commented on {payload:pull_request:html_url} {payload:comment[0:50]}... [
+    if ref == 'repository':
+        "{a:login} deleted repo {r:name}"
+    else:
+        "[{r:name}] {a:login} deleted {p:ref_type} '{p:ref}'"
 
 PushEvent
-    actor
-        login
-    payload
-        size
-        commits
-            message
-            sha
-        ref (branch)
-    repo
-        name
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-22T04:17:57Z',
+    u'id': u'2109908341',
+    u'payload': {u'before': u'5aa3d9024662b77a04c508401bc61961ef8fc42b',
+                u'commits': [{u'author': {u'email': u'src@timsogard.com',
+                                            u'name': u'Tim Sogard'},
+                                u'distinct': True,
+                                u'message': u'Testing filtering re-de-redux',
+                                u'sha': u'553bdfd687b94e58c0b639370766e0337aac5179',
+                                u'url': u'https://api.github.com/repos/drags/gea-test-repo/commits/553bdfd687b94e58c0b639370766e0337aac5179'}],
+                u'distinct_size': 1,
+                u'head': u'553bdfd687b94e58c0b639370766e0337aac5179',
+                u'push_id': 371586562,
+                u'ref': u'refs/heads/branch4',
+                u'size': 1},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'PushEvent'}
 
-        "{actor:login} pushed {payload:size} commits to {repo:name}"
+    "{a:login} pushed {p:size} commits to {r:name}"
+    "[{r:name]} commit: {c:sha}[0:8] "{c:message}" [{c:author:name}]"
 
+PullRequestEvent
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-22T04:19:50Z',
+    u'id': u'2109909579',
+    u'payload': {u'action': u'opened',
+                u'number': 5,
+                u'pull_request': {u'_links': {u'comments': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/issues/5/comments'},
+                                                u'commits': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5/commits'},
+                                                u'html': {u'href': u'https://github.com/drags/gea-test-repo/pull/5'},
+                                                u'issue': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/issues/5'},
+                                                u'review_comment': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/pulls/comments/{number}'},
+                                                u'review_comments': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5/comments'},
+                                                u'self': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5'},
+                                                u'statuses': {u'href': u'https://api.github.com/repos/drags/gea-test-repo/statuses/553bdfd687b94e58c0b639370766e0337aac5179'}},
+                                    u'additions': 4,
+                                    u'assignee': None,
+                                    u'base': {u'label': u'drags:master',
+                                            u'ref': u'master',
+                                            u'repo': {u'archive_url': u'https://api.github.com/repos/drags/gea-test-repo/{archive_format}{/ref}',
+                                                        u'assignees_url': u'https://api.github.com/repos/drags/gea-test-repo/assignees{/user}',
+                                                        u'blobs_url': u'https://api.github.com/repos/drags/gea-test-repo/git/blobs{/sha}',
+                                                        u'branches_url': u'https://api.github.com/repos/drags/gea-test-repo/branches{/branch}',
+                                                        u'clone_url': u'https://github.com/drags/gea-test-repo.git',
+                                                        u'collaborators_url': u'https://api.github.com/repos/drags/gea-test-repo/collaborators{/collaborator}',
+                                                        u'comments_url': u'https://api.github.com/repos/drags/gea-test-repo/comments{/number}',
+                                                        u'commits_url': u'https://api.github.com/repos/drags/gea-test-repo/commits{/sha}',
+                                                        u'compare_url': u'https://api.github.com/repos/drags/gea-test-repo/compare/{base}...{head}',
+                                                        u'contents_url': u'https://api.github.com/repos/drags/gea-test-repo/contents/{+path}',
+                                                        u'contributors_url': u'https://api.github.com/repos/drags/gea-test-repo/contributors',
+                                                        u'created_at': u'2012-12-28T05:42:29Z',
+                                                        u'default_branch': u'master',
+                                                        u'description': u'Scratch repo for github-event-announce development',
+                                                        u'downloads_url': u'https://api.github.com/repos/drags/gea-test-repo/downloads',
+                                                        u'events_url': u'https://api.github.com/repos/drags/gea-test-repo/events',
+                                                        u'fork': False,
+                                                        u'forks': 0,
+                                                        u'forks_count': 0,
+                                                        u'forks_url': u'https://api.github.com/repos/drags/gea-test-repo/forks',
+                                                        u'full_name': u'drags/gea-test-repo',
+                                                        u'git_commits_url': u'https://api.github.com/repos/drags/gea-test-repo/git/commits{/sha}',
+                                                        u'git_refs_url': u'https://api.github.com/repos/drags/gea-test-repo/git/refs{/sha}',
+                                                        u'git_tags_url': u'https://api.github.com/repos/drags/gea-test-repo/git/tags{/sha}',
+                                                        u'git_url': u'git://github.com/drags/gea-test-repo.git',
+                                                        u'has_downloads': True,
+                                                        u'has_issues': True,
+                                                        u'has_wiki': True,
+                                                        u'homepage': None,
+                                                        u'hooks_url': u'https://api.github.com/repos/drags/gea-test-repo/hooks',
+                                                        u'html_url': u'https://github.com/drags/gea-test-repo',
+                                                        u'id': 7350517,
+                                                        u'issue_comment_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/comments/{number}',
+                                                        u'issue_events_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/events{/number}',
+                                                        u'issues_url': u'https://api.github.com/repos/drags/gea-test-repo/issues{/number}',
+                                                        u'keys_url': u'https://api.github.com/repos/drags/gea-test-repo/keys{/key_id}',
+                                                        u'labels_url': u'https://api.github.com/repos/drags/gea-test-repo/labels{/name}',
+                                                        u'language': None,
+                                                        u'languages_url': u'https://api.github.com/repos/drags/gea-test-repo/languages',
+                                                        u'merges_url': u'https://api.github.com/repos/drags/gea-test-repo/merges',
+                                                        u'milestones_url': u'https://api.github.com/repos/drags/gea-test-repo/milestones{/number}',
+                                                        u'mirror_url': None,
+                                                        u'name': u'gea-test-repo',
+                                                        u'notifications_url': u'https://api.github.com/repos/drags/gea-test-repo/notifications{?since,all,participating}',
+                                                        u'open_issues': 3,
+                                                        u'open_issues_count': 3,
+                                                        u'owner': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                                                u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                                                u'followers_url': u'https://api.github.com/users/drags/followers',
+                                                                u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                                                u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                                                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                                                u'html_url': u'https://github.com/drags',
+                                                                u'id': 25615,
+                                                                u'login': u'drags',
+                                                                u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                                                u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                                                u'repos_url': u'https://api.github.com/users/drags/repos',
+                                                                u'site_admin': False,
+                                                                u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                                                u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                                                u'type': u'User',
+                                                                u'url': u'https://api.github.com/users/drags'},
+                                                        u'private': False,
+                                                        u'pulls_url': u'https://api.github.com/repos/drags/gea-test-repo/pulls{/number}',
+                                                        u'pushed_at': u'2014-05-22T04:17:57Z',
+                                                        u'releases_url': u'https://api.github.com/repos/drags/gea-test-repo/releases{/id}',
+                                                        u'size': 252,
+                                                        u'ssh_url': u'git@github.com:drags/gea-test-repo.git',
+                                                        u'stargazers_count': 0,
+                                                        u'stargazers_url': u'https://api.github.com/repos/drags/gea-test-repo/stargazers',
+                                                        u'statuses_url': u'https://api.github.com/repos/drags/gea-test-repo/statuses/{sha}',
+                                                        u'subscribers_url': u'https://api.github.com/repos/drags/gea-test-repo/subscribers',
+                                                        u'subscription_url': u'https://api.github.com/repos/drags/gea-test-repo/subscription',
+                                                        u'svn_url': u'https://github.com/drags/gea-test-repo',
+                                                        u'tags_url': u'https://api.github.com/repos/drags/gea-test-repo/tags',
+                                                        u'teams_url': u'https://api.github.com/repos/drags/gea-test-repo/teams',
+                                                        u'trees_url': u'https://api.github.com/repos/drags/gea-test-repo/git/trees{/sha}',
+                                                        u'updated_at': u'2014-05-22T04:19:50Z',
+                                                        u'url': u'https://api.github.com/repos/drags/gea-test-repo',
+                                                        u'watchers': 0,
+                                                        u'watchers_count': 0},
+                                            u'sha': u'fe5823afbbc8ff28809cec2b216f24417bfa6772',
+                                            u'user': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                                        u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                                        u'followers_url': u'https://api.github.com/users/drags/followers',
+                                                        u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                                        u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                                        u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                                        u'html_url': u'https://github.com/drags',
+                                                        u'id': 25615,
+                                                        u'login': u'drags',
+                                                        u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                                        u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                                        u'repos_url': u'https://api.github.com/users/drags/repos',
+                                                        u'site_admin': False,
+                                                        u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                                        u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                                        u'type': u'User',
+                                                        u'url': u'https://api.github.com/users/drags'}},
+                                    u'body': u'Hey look another PR',
+                                    u'changed_files': 4,
+                                    u'closed_at': None,
+                                    u'comments': 0,
+                                    u'comments_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5/comments',
+                                    u'commits': 5,
+                                    u'commits_url': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5/commits',
+                                    u'created_at': u'2014-05-22T04:19:50Z',
+                                    u'deletions': 0,
+                                    u'diff_url': u'https://github.com/drags/gea-test-repo/pull/5.diff',
+                                    u'head': {u'label': u'drags:branch4',
+                                            u'ref': u'branch4',
+                                            u'repo': {u'archive_url': u'https://api.github.com/repos/drags/gea-test-repo/{archive_format}{/ref}',
+                                                        u'assignees_url': u'https://api.github.com/repos/drags/gea-test-repo/assignees{/user}',
+                                                        u'blobs_url': u'https://api.github.com/repos/drags/gea-test-repo/git/blobs{/sha}',
+                                                        u'branches_url': u'https://api.github.com/repos/drags/gea-test-repo/branches{/branch}',
+                                                        u'clone_url': u'https://github.com/drags/gea-test-repo.git',
+                                                        u'collaborators_url': u'https://api.github.com/repos/drags/gea-test-repo/collaborators{/collaborator}',
+                                                        u'comments_url': u'https://api.github.com/repos/drags/gea-test-repo/comments{/number}',
+                                                        u'commits_url': u'https://api.github.com/repos/drags/gea-test-repo/commits{/sha}',
+                                                        u'compare_url': u'https://api.github.com/repos/drags/gea-test-repo/compare/{base}...{head}',
+                                                        u'contents_url': u'https://api.github.com/repos/drags/gea-test-repo/contents/{+path}',
+                                                        u'contributors_url': u'https://api.github.com/repos/drags/gea-test-repo/contributors',
+                                                        u'created_at': u'2012-12-28T05:42:29Z',
+                                                        u'default_branch': u'master',
+                                                        u'description': u'Scratch repo for github-event-announce development',
+                                                        u'downloads_url': u'https://api.github.com/repos/drags/gea-test-repo/downloads',
+                                                        u'events_url': u'https://api.github.com/repos/drags/gea-test-repo/events',
+                                                        u'fork': False,
+                                                        u'forks': 0,
+                                                        u'forks_count': 0,
+                                                        u'forks_url': u'https://api.github.com/repos/drags/gea-test-repo/forks',
+                                                        u'full_name': u'drags/gea-test-repo',
+                                                        u'git_commits_url': u'https://api.github.com/repos/drags/gea-test-repo/git/commits{/sha}',
+                                                        u'git_refs_url': u'https://api.github.com/repos/drags/gea-test-repo/git/refs{/sha}',
+                                                        u'git_tags_url': u'https://api.github.com/repos/drags/gea-test-repo/git/tags{/sha}',
+                                                        u'git_url': u'git://github.com/drags/gea-test-repo.git',
+                                                        u'has_downloads': True,
+                                                        u'has_issues': True,
+                                                        u'has_wiki': True,
+                                                        u'homepage': None,
+                                                        u'hooks_url': u'https://api.github.com/repos/drags/gea-test-repo/hooks',
+                                                        u'html_url': u'https://github.com/drags/gea-test-repo',
+                                                        u'id': 7350517,
+                                                        u'issue_comment_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/comments/{number}',
+                                                        u'issue_events_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/events{/number}',
+                                                        u'issues_url': u'https://api.github.com/repos/drags/gea-test-repo/issues{/number}',
+                                                        u'keys_url': u'https://api.github.com/repos/drags/gea-test-repo/keys{/key_id}',
+                                                        u'labels_url': u'https://api.github.com/repos/drags/gea-test-repo/labels{/name}',
+                                                        u'language': None,
+                                                        u'languages_url': u'https://api.github.com/repos/drags/gea-test-repo/languages',
+                                                        u'merges_url': u'https://api.github.com/repos/drags/gea-test-repo/merges',
+                                                        u'milestones_url': u'https://api.github.com/repos/drags/gea-test-repo/milestones{/number}',
+                                                        u'mirror_url': None,
+                                                        u'name': u'gea-test-repo',
+                                                        u'notifications_url': u'https://api.github.com/repos/drags/gea-test-repo/notifications{?since,all,participating}',
+                                                        u'open_issues': 3,
+                                                        u'open_issues_count': 3,
+                                                        u'owner': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                                                u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                                                u'followers_url': u'https://api.github.com/users/drags/followers',
+                                                                u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                                                u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                                                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                                                u'html_url': u'https://github.com/drags',
+                                                                u'id': 25615,
+                                                                u'login': u'drags',
+                                                                u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                                                u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                                                u'repos_url': u'https://api.github.com/users/drags/repos',
+                                                                u'site_admin': False,
+                                                                u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                                                u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                                                u'type': u'User',
+                                                                u'url': u'https://api.github.com/users/drags'},
+                                                        u'private': False,
+                                                        u'pulls_url': u'https://api.github.com/repos/drags/gea-test-repo/pulls{/number}',
+                                                        u'pushed_at': u'2014-05-22T04:17:57Z',
+                                                        u'releases_url': u'https://api.github.com/repos/drags/gea-test-repo/releases{/id}',
+                                                        u'size': 252,
+                                                        u'ssh_url': u'git@github.com:drags/gea-test-repo.git',
+                                                        u'stargazers_count': 0,
+                                                        u'stargazers_url': u'https://api.github.com/repos/drags/gea-test-repo/stargazers',
+                                                        u'statuses_url': u'https://api.github.com/repos/drags/gea-test-repo/statuses/{sha}',
+                                                        u'subscribers_url': u'https://api.github.com/repos/drags/gea-test-repo/subscribers',
+                                                        u'subscription_url': u'https://api.github.com/repos/drags/gea-test-repo/subscription',
+                                                        u'svn_url': u'https://github.com/drags/gea-test-repo',
+                                                        u'tags_url': u'https://api.github.com/repos/drags/gea-test-repo/tags',
+                                                        u'teams_url': u'https://api.github.com/repos/drags/gea-test-repo/teams',
+                                                        u'trees_url': u'https://api.github.com/repos/drags/gea-test-repo/git/trees{/sha}',
+                                                        u'updated_at': u'2014-05-22T04:19:50Z',
+                                                        u'url': u'https://api.github.com/repos/drags/gea-test-repo',
+                                                        u'watchers': 0,
+                                                        u'watchers_count': 0},
+                                            u'sha': u'553bdfd687b94e58c0b639370766e0337aac5179',
+                                            u'user': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                                        u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                                        u'followers_url': u'https://api.github.com/users/drags/followers',
+                                                        u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                                        u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                                        u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                                        u'html_url': u'https://github.com/drags',
+                                                        u'id': 25615,
+                                                        u'login': u'drags',
+                                                        u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                                        u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                                        u'repos_url': u'https://api.github.com/users/drags/repos',
+                                                        u'site_admin': False,
+                                                        u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                                        u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                                        u'type': u'User',
+                                                        u'url': u'https://api.github.com/users/drags'}},
+                                    u'html_url': u'https://github.com/drags/gea-test-repo/pull/5',
+                                    u'id': 16200884,
+                                    u'issue_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5',
+                                    u'merge_commit_sha': None,
+                                    u'mergeable': None,
+                                    u'mergeable_state': u'unknown',
+                                    u'merged': False,
+                                    u'merged_at': None,
+                                    u'merged_by': None,
+                                    u'milestone': None,
+                                    u'number': 5,
+                                    u'patch_url': u'https://github.com/drags/gea-test-repo/pull/5.patch',
+                                    u'review_comment_url': u'https://api.github.com/repos/drags/gea-test-repo/pulls/comments/{number}',
+                                    u'review_comments': 0,
+                                    u'review_comments_url': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5/comments',
+                                    u'state': u'open',
+                                    u'statuses_url': u'https://api.github.com/repos/drags/gea-test-repo/statuses/553bdfd687b94e58c0b639370766e0337aac5179',
+                                    u'title': u'Branch4',
+                                    u'updated_at': u'2014-05-22T04:19:50Z',
+                                    u'url': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5',
+                                    u'user': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                            u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                            u'followers_url': u'https://api.github.com/users/drags/followers',
+                                            u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                            u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                            u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                            u'html_url': u'https://github.com/drags',
+                                            u'id': 25615,
+                                            u'login': u'drags',
+                                            u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                            u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                            u'repos_url': u'https://api.github.com/users/drags/repos',
+                                            u'site_admin': False,
+                                            u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                            u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                            u'type': u'User',
+                                            u'url': u'https://api.github.com/users/drags'}}},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+
+
+    "[{r:name}] {a:login} {p:action} pull request '{pr:title}' [{pr:_links:html}]"
+
+IssuesEvent:
+    {u'actor':
+                u'login': u'drags',
+    u'created_at': u'2014-05-12T02:07:52Z',
+    u'payload': {u'action': u'opened',
+                u'issue':
+                            u'body': u"Something's fucky Ricky",
+                            u'closed_at': None,
+                            u'comments': 0,
+                            u'comments_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/3/comments',
+                            u'created_at': u'2014-05-12T02:07:51Z',
+                            u'labels': [],
+                            u'number': 3,
+                            u'state': u'open',
+                            u'title': u'Test issue from issues pane',
+                            u'updated_at': u'2014-05-12T02:07:51Z',
+                            u'url': u'https://api.github.com/repos/drags/gea-test-repo/issues/3',
+                            u'user':
+                                    u'login': u'drags',
+    u'public': True,
+    u'repo':
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'IssuesEvent'}
+
+    "[{repo:name}] {actor:login} {:issue:state}ed issue '{issue:title}' [{issue:url}]"
+
+IssueCommentEvent
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-22T07:00:37Z',
+    u'id': u'2110033907',
+    u'payload': {u'action': u'created',
+                u'comment': {u'body': u"Much longer pullrequest comment, is this being handled yut? I sure hope so. Man I haven't played billiars in a while. I wonder what I even set the cutofff for this text to.",
+                            u'created_at': u'2014-05-22T07:00:36Z',
+                            u'html_url': u'https://github.com/drags/gea-test-repo/pull/5#issuecomment-43854689',
+                            u'id': 43854689,
+                            u'issue_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5',
+                            u'updated_at': u'2014-05-22T07:00:36Z',
+                            u'url': u'https://api.github.com/repos/drags/gea-test-repo/issues/comments/43854689',
+                            u'user': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                        u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                        u'followers_url': u'https://api.github.com/users/drags/followers',
+                                        u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                        u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                        u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                        u'html_url': u'https://github.com/drags',
+                                        u'id': 25615,
+                                        u'login': u'drags',
+                                        u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                        u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                        u'repos_url': u'https://api.github.com/users/drags/repos',
+                                        u'site_admin': False,
+                                        u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                        u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                        u'type': u'User',
+                                        u'url': u'https://api.github.com/users/drags'}},
+                u'issue': {u'assignee': None,
+                            u'body': u'Hey look another PR',
+                            u'closed_at': None,
+                            u'comments': 1,
+                            u'comments_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5/comments',
+                            u'created_at': u'2014-05-22T04:19:50Z',
+                            u'events_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5/events',
+                            u'html_url': u'https://github.com/drags/gea-test-repo/pull/5',
+                            u'id': 34050219,
+                            u'labels': [],
+                            u'labels_url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5/labels{/name}',
+                            u'milestone': None,
+                            u'number': 5,
+                            u'pull_request': {u'diff_url': u'https://github.com/drags/gea-test-repo/pull/5.diff',
+                                            u'html_url': u'https://github.com/drags/gea-test-repo/pull/5',
+                                            u'patch_url': u'https://github.com/drags/gea-test-repo/pull/5.patch',
+                                            u'url': u'https://api.github.com/repos/drags/gea-test-repo/pulls/5'},
+                            u'state': u'open',
+                            u'title': u'Branch4',
+                            u'updated_at': u'2014-05-22T07:00:36Z',
+                            u'url': u'https://api.github.com/repos/drags/gea-test-repo/issues/5',
+                            u'user': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                                    u'events_url': u'https://api.github.com/users/drags/events{/privacy}',
+                                    u'followers_url': u'https://api.github.com/users/drags/followers',
+                                    u'following_url': u'https://api.github.com/users/drags/following{/other_user}',
+                                    u'gists_url': u'https://api.github.com/users/drags/gists{/gist_id}',
+                                    u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                                    u'html_url': u'https://github.com/drags',
+                                    u'id': 25615,
+                                    u'login': u'drags',
+                                    u'organizations_url': u'https://api.github.com/users/drags/orgs',
+                                    u'received_events_url': u'https://api.github.com/users/drags/received_events',
+                                    u'repos_url': u'https://api.github.com/users/drags/repos',
+                                    u'site_admin': False,
+                                    u'starred_url': u'https://api.github.com/users/drags/starred{/owner}{/repo}',
+                                    u'subscriptions_url': u'https://api.github.com/users/drags/subscriptions',
+                                    u'type': u'User',
+                                    u'url': u'https://api.github.com/users/drags'}}},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'IssueCommentEvent'}
+
+    "{c:user:login} commented on {i:html_url} {c:body[0:50]}"
+
+MemberEvent
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-22T20:01:57Z',
+    u'id': u'2111244153',
+    u'payload': {u'action': u'added',
+                u'member': {u'avatar_url': u'https://avatars.githubusercontent.com/u/5396032?',
+                            u'events_url': u'https://api.github.com/users/awesm-o/events{/privacy}',
+                            u'followers_url': u'https://api.github.com/users/awesm-o/followers',
+                            u'following_url': u'https://api.github.com/users/awesm-o/following{/other_user}',
+                            u'gists_url': u'https://api.github.com/users/awesm-o/gists{/gist_id}',
+                            u'gravatar_id': u'3f503ccab9bf5fc8fc24a06491fbec0a',
+                            u'html_url': u'https://github.com/awesm-o',
+                            u'id': 5396032,
+                            u'login': u'awesm-o',
+                            u'organizations_url': u'https://api.github.com/users/awesm-o/orgs',
+                            u'received_events_url': u'https://api.github.com/users/awesm-o/received_events',
+                            u'repos_url': u'https://api.github.com/users/awesm-o/repos',
+                            u'site_admin': False,
+                            u'starred_url': u'https://api.github.com/users/awesm-o/starred{/owner}{/repo}',
+                            u'subscriptions_url': u'https://api.github.com/users/awesm-o/subscriptions',
+                            u'type': u'User',
+                            u'url': u'https://api.github.com/users/awesm-o'}},
+    u'public': True,
+    u'repo': {u'id': 7350517,
+            u'name': u'drags/gea-test-repo',
+            u'url': u'https://api.github.com/repos/drags/gea-test-repo'},
+    u'type': u'MemberEvent'}
+
+    "[{r:name}] {a:login} {p:action} collaborator {p:member:login}"
+
+TeamAddEvent
+    {u'actor': u'login': u'gea-test-org',
+    u'org': u'login': u'gea-test-org',
+    u'payload': {u'repository': u'full_name': u'gea-test-org/gea-test-repo2',
+                                u'html_url': u'https://github.com/gea-test-org/gea-test-repo2',
+                                u'name': u'gea-test-repo2',
+                                u'owner': u'html_url': u'https://github.com/gea-test-org',
+                                            u'login': u'gea-test-org',
+                u'team': u'name': u'non-owners',
+    u'repo': {u'id': 20118788,
+            u'name': u'gea-test-org/gea-test-repo2',
+            u'url': u'https://api.github.com/repos/gea-test-org/gea-test-repo2'},
+    u'type': u'TeamAddEvent'}
+
+    TeamAddEvent
+    {u'actor': u'login': u'gea-test-org',
+    u'org': u'login': u'gea-test-org',
+    u'payload': {u'team': u'name': u'non-owners',
+                u'user': 
+                            u'html_url': u'https://github.com/drags',
+                            u'login': u'drags',
+                            u'url': u'https://api.github.com/users/drags'}},
+    u'public': False,
+    u'repo': {u'name': u'/', u'url': u'https://api.github.com/repos//'},
+    u'type': u'TeamAddEvent'}
+
+    if 'user' in payload:
+        "[org: {p:org:login}] {a:login} added user {p:user:login} to team {p:team:name}"
+
+    if 'repository' in payload:
+        "[org: {p:org:login}] {a:login} added repo {p:user:login} to team {p:team:name}"
+
+WatchEvent
+    {u'actor': {u'avatar_url': u'https://avatars.githubusercontent.com/u/25615?',
+                u'gravatar_id': u'5345ec54507d6fece232f8600f36d7a1',
+                u'id': 25615,
+                u'login': u'drags',
+                u'url': u'https://api.github.com/users/drags'},
+    u'created_at': u'2014-05-24T01:35:50Z',
+    u'id': u'2113302766',
+    u'org': {u'avatar_url': u'https://avatars.githubusercontent.com/u/7685213?',
+            u'gravatar_id': None,
+            u'id': 7685213,
+            u'login': u'gea-test-org',
+            u'url': u'https://api.github.com/orgs/gea-test-org'},
+    u'payload': {u'action': u'started'},
+    u'public': True,
+    u'repo': {u'id': 20118788,
+            u'name': u'gea-test-org/gea-test-repo2',
+            u'url': u'https://api.github.com/repos/gea-test-org/gea-test-repo2'},
+    u'type': u'WatchEvent'}
+
+    [{r:name}] user {a:login} starred repository {r:name}
+
+PublicEvent
+# Man I really need a private account
+
+
+# Eventually:
+DeploymentEvent
+DownloadEvent
+FollowEvent
+ForkEvent
+PageBuildEvent
+ReleaseEvent
