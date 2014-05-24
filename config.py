@@ -12,14 +12,14 @@ def configure(advanced):
 
 GitEventAnnounce = conf.registerPlugin('GitEventAnnounce')
 
-conf.registerChannelValue(GitEventAnnounce, 'announcePushEvents',
-                          registry.Boolean(True, 'Announce Push events'))
-
 conf.registerChannelValue(GitEventAnnounce, 'announceCreateEvents',
                           registry.Boolean(True, 'Announce Create events'))
 
 conf.registerChannelValue(GitEventAnnounce, 'announceDeleteEvents',
                           registry.Boolean(True, 'Announce Delete events'))
+
+conf.registerChannelValue(GitEventAnnounce, 'announcePushEvents',
+                          registry.Boolean(True, 'Announce Push events'))
 
 conf.registerChannelValue(GitEventAnnounce, 'announcePullRequestEvents',
                           registry.Boolean(True, 'Announce PullRequest events'))
@@ -35,6 +35,9 @@ conf.registerChannelValue(GitEventAnnounce, 'announceMemberEvents',
 
 conf.registerChannelValue(GitEventAnnounce, 'announceTeamAddEvents',
                           registry.Boolean(True, 'Announce TeamAdd events'))
+
+conf.registerChannelValue(GitEventAnnounce, 'announceWatchEvents',
+                          registry.Boolean(True, 'Announce Watch events'))
 
 conf.registerChannelValue(GitEventAnnounce, 'silence',
                          registry.Boolean(False, 'Disable all subscription announcements'))
