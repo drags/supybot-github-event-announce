@@ -181,10 +181,21 @@ class GitEventAnnounce(callbacks.Plugin):
         if sub_found is False:
             irc.reply('Sub %s was not found.' % sub_to_delete)
 
-        # TODO cleanup self.authorizations
+        # cleanup self.authorizations if GitHub user's last subscription
+        self.cleanup_subs(login_user)
     delsub = wrap(delsub, [('checkCapability', 'admin'),
                            'somethingWithoutSpaces', 'somethingWithoutSpaces',
                            'somethingWithoutSpaces'])
+
+    def cleanup_subs(self, login_user):
+        if filter(lambda x: x.login_user == login_user,
+                  self.subscriptions.values()) == []:
+            try:
+                del(self.authorizations[login_user])
+            except KeyError:
+                logger.error(
+                    'Tried to delete non-existant authorizations entry for %s'
+                    % login_user)
 
     def authorize(self, irc, msg, args, username, token):
         '''Accept an OAuth token'''
