@@ -108,11 +108,8 @@ class GitEventAnnounce(callbacks.Plugin):
             sub.stop_polling()
         self.savesubs()
 
-    # TODO trigger on authorization delete to delete subs which use that auth
-
     def addsub(self, irc, msg, args, login_user, sub_type, target):
         '''Add an event stream to watch: args(github_user, type, name)'''
-        # TODO add 404 checking to ensure repo/org/etc exists
         if sub_type not in Subscription.sub_types:
             known_types = ', '.join(Subscription.sub_types.keys())
             irc.reply('Unknown subscription type: %s' % (sub_type))
@@ -206,6 +203,8 @@ class GitEventAnnounce(callbacks.Plugin):
     def _auth_with_token(self, username, token):
         '''Finish OAuth handshake and init job'''
         # TODO test if token works/ has acceptable scope
+        # TODO update self.authorizations for github user if already in
+        # authorizations table and no subscriptions pending
         for (name, sub) in self.pending_subscriptions.items():
             if sub.login_user == username:
                 sub.token = token
@@ -245,7 +244,6 @@ class Subscription(object):
         'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s',
     }
 
-    # TODO ##update_interval = 90
     update_interval = 60
     minimum_update_interval = 60
 
@@ -266,6 +264,7 @@ class Subscription(object):
         self.url = url
         self.api_session = requests.Session()
         self.api_session.headers['content-type'] = 'application/json'
+        self.api_session.headers['user-agent'] = 'Supybot-GithubEventAnnounce 0.4' #noqa
         self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
 
@@ -409,14 +408,17 @@ class SubscriptionAnnouncer:
 
     def PushEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
-        #try:
-        #    msg = "%s pushed %d commits to %s:" % \
-        #        (a['login'], p['size'], r['name'])
-        #except KeyError as err:
-        #    logger.error("Got KeyError in PushEvent: %s" % err)
-        #    msg = "GEA: Failed to parse event"
-        #    return
-        #self._send_messages(sub, msg, 'PushEvent')
+        # Print summary if >1 commit
+        if p['size'] > 1:
+            try:
+                msg = "%s pushed %d commits to %s:" % \
+                    (a['login'], p['size'], r['name'])
+            except KeyError as err:
+                logger.error("Got KeyError in PushEvent: %s" % err)
+                msg = "GEA: Failed to parse event"
+                return
+            self._send_messages(sub, msg, 'PushEvent')
+
         # Print shortlogs for commits
         commits = p['commits']
         commits.reverse()
