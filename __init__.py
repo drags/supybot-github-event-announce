@@ -1,5 +1,5 @@
 ###
-# Pickup service announcements, 
+# Pickup service announcements,
 ###
 
 """
@@ -11,7 +11,7 @@ import supybot.world as world
 
 # Use this for the version of this plugin.  You may wish to put a CVS keyword
 # in here if you're keeping the plugin in CVS or some similar system.
-__version__ = "0.0.1"
+__version__ = "0.4.0"
 
 # Replace this with an appropriate author or supybot.Author instance.
 __author__ = supybot.Author('Tim Sogard', 'drags', 'tim@awe.sm')
@@ -21,7 +21,7 @@ __author__ = supybot.Author('Tim Sogard', 'drags', 'tim@awe.sm')
 __contributors__ = {}
 
 # This is a url where the most recent plugin package can be downloaded.
-__url__ = 'http://github.com/drags/github-organization-announce'
+__url__ = 'http://github.com/drags/supybot-github-event-announce'
 
 import config
 import plugin

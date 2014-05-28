@@ -65,7 +65,7 @@ Tokens for each GitHub user are stored as long as a single subscription remains 
 ## Config
 The bot has channel-level configuration for the silencing of all event types. This allows controlling (for all subscriptions within a channel) which type of events get announced. **Be aware** that in order to change a configuration variable for **just the current channel** in Supybot, the 'config' command must be given the 'channel' keyword, for example:
 
-	config channel plugins.GitEventAnnounce.announcePushEvents False
+	config channel plugins.GithubEventAnnounce.announcePushEvents False
 
 Without the 'channel' keyword the setting will be changed globally.
 

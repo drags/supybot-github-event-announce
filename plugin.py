@@ -26,14 +26,14 @@ pp = pprint.PrettyPrinter(indent=4)
 logger = logging.getLogger('supybot')
 
 
-class GitEventAnnounce(callbacks.Plugin):
+class GitHubEventAnnounce(callbacks.Plugin):
 
     '''Github Event Announcer: Announce the public or private event stream to
         an IRC channel'''
     threaded = True
 
     def __init__(self, irc):
-        self.__parent = super(GitEventAnnounce, self)
+        self.__parent = super(GitHubEventAnnounce, self)
         self.__parent.__init__(irc)
         self.pending_subscriptions = {}
         self.subscriptions = {}
@@ -232,7 +232,7 @@ class GitEventAnnounce(callbacks.Plugin):
                     irc.reply(name)
     listsubs = wrap(listsubs, ['channel'])
 
-Class = GitEventAnnounce
+Class = GitHubEventAnnounce
 
 
 class Subscription(object):
@@ -515,7 +515,7 @@ class SubscriptionAnnouncer:
     def _send_messages(self, sub, msg, type):
         for chan in sub.channels:
             try:
-                group = getattr(conf.supybot.plugins.GitEventAnnounce,
+                group = getattr(conf.supybot.plugins.GitHubEventAnnounce,
                                 'announce%ss' % (type))
             except:
                 e = sys.exc_info()

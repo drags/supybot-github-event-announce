@@ -8,38 +8,38 @@ def configure(advanced):
     # user or not.  You should effect your configuration by manipulating the
     # registry as appropriate.
     from supybot.questions import expect, anything, something, yn
-    conf.registerPlugin('GitEventAnnounce', True)
+    conf.registerPlugin('GitHubEventAnnounce', True)
 
-GitEventAnnounce = conf.registerPlugin('GitEventAnnounce')
+GitHubEventAnnounce = conf.registerPlugin('GitHubEventAnnounce')
 
-conf.registerChannelValue(GitEventAnnounce, 'announceCreateEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceCreateEvents',
                           registry.Boolean(True, 'Announce Create events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceDeleteEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceDeleteEvents',
                           registry.Boolean(True, 'Announce Delete events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announcePushEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announcePushEvents',
                           registry.Boolean(True, 'Announce Push events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announcePullRequestEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announcePullRequestEvents',
                           registry.Boolean(True, 'Announce PullRequest events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceIssuesEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceIssuesEvents',
                           registry.Boolean(True, 'Announce Issues events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceIssueCommentEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceIssueCommentEvents',
                           registry.Boolean(True, 'Announce IssueComment events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceMemberEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceMemberEvents',
                           registry.Boolean(True, 'Announce Member events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceTeamAddEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceTeamAddEvents',
                           registry.Boolean(True, 'Announce TeamAdd events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'announceWatchEvents',
+conf.registerChannelValue(GitHubEventAnnounce, 'announceWatchEvents',
                           registry.Boolean(True, 'Announce Watch events'))
 
-conf.registerChannelValue(GitEventAnnounce, 'silence',
+conf.registerChannelValue(GitHubEventAnnounce, 'silence',
                          registry.Boolean(False, 'Disable all subscription announcements'))
 
 # vim:set shiftwidth=4 tabstop=4 expandtab textwidth=79:

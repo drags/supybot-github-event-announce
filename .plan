@@ -14,16 +14,17 @@ x- persistent storage
     x- known subs
     x- rebuild self.authorizations from tokens found in saved subs
 x- allow subs in multiple channels
-- per-channel configuration opts for enable/disable event types
+x- per-channel configuration opts for enable/disable event types
+x- expand README
 - listauths
 - delauth
+    - remove subs for that user
 - better help output
-- expand README
 - enable/disable jobs?
 - option git.io(/other/custom?) wrapping for links
 - option to only announce events where public==true
 - obey 'silence' options (per channel and globally)
-- honor github's "no sooner than" response header for scheduler timing
+- allow for public (unauthenticated) subscriptions
 
 
 Config:
