@@ -62,7 +62,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
                                        str(sub['sub_type']),
                                        str(sub['target']))
                 # Restore token, etag, last seen
-                new_sub.token = str(sub['token'])
+                new_sub.set_token(sub['token'])
                 new_sub.api_session.headers['If-None-Match'] = sub['etag']
                 latest_event_dt = \
                     datetime.datetime.fromtimestamp(sub['latest_event'])
@@ -203,14 +203,15 @@ class GitHubEventAnnounce(callbacks.Plugin):
     def _auth_with_token(self, username, token):
         '''Finish OAuth handshake and init job'''
         # TODO test if token works/ has acceptable scope
-        # TODO update self.authorizations for github user if already in
-        # authorizations table and no subscriptions pending
         for (name, sub) in self.pending_subscriptions.items():
             if sub.login_user == username:
-                sub.token = token
-                sub.start_polling()
-                self.subscriptions[name] = sub
-                del(self.pending_subscriptions[name])
+                sub.set_token(token)
+                if sub.validate_sub():
+                    sub.start_polling()
+                    self.subscriptions[name] = sub
+                    del(self.pending_subscriptions[name])
+                else:
+                    return False
 
         # Add/update token to known token list
         self.authorizations[username] = token
@@ -277,13 +278,13 @@ class Subscription(object):
         return "[%s] %s@%s" % (self.sub_type, self.login_user, self.url)
 
     def validate_sub(self):
-        # TODO doesn't work for private event streams? fix if possible
         r = self.api_session.get(self.url)
         if not r.ok:
             emsg = "Failed to load %s. Got error code: %d, msg: %s" % \
                 (self, r.status_code, r.reason)
             self.irc.reply(emsg)
-            raise ValueError(emsg)
+            #raise ValueError(emsg) # why raise here?
+        return r.ok
 
     def _authorize(self, msg):
         '''Ask user for an OAuth token.'''
@@ -304,8 +305,11 @@ class Subscription(object):
                 "Reply TO THIS PRIVATE MESSAGE with 'authorize %s <token>'" %
                 self.login_user))
 
+    def set_token(self, token):
+        self.token = token
+        self.api_session.headers['Authorization'] = 'token %s' % token
+
     def start_polling(self):
-        self.api_session.headers['Authorization'] = 'token %s' % self.token
         logger.info("Starting GEA job %s" % self.job_name)
         schedule.addPeriodicEvent(
             self.fetch_updates,
