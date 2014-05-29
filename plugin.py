@@ -211,8 +211,6 @@ class GitHubEventAnnounce(callbacks.Plugin):
                     return False
 
         # Add/update token to known token list
-        if username in self.authorizations:
-            self.irc.reply('Updating token for known user %s' % username)
         self.authorizations[username] = token
 
     def listsubs(self, irc, msg, args, channel):
@@ -472,7 +470,7 @@ class SubscriptionAnnouncer:
     def MemberEvent(self, sub, e):
         (a, p, r) = self._mkdicts('apr', e)
         try:
-            msg = '[%s] %s %s collaborator %s"' % \
+            msg = '[%s] %s %s collaborator %s' % \
                 (r['name'], a['login'], p['action'], p['member']['login'])
         except KeyError as err:
             logger.error("Got KeyError in MemberEvent: %s" % err)
