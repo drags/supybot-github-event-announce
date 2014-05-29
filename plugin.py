@@ -78,9 +78,6 @@ class GitHubEventAnnounce(callbacks.Plugin):
                 self.authorizations[sub.login_user] = sub.token
 
     def savesubs(self):
-        if len(self.subscriptions.keys()) < 1:
-            return False
-
         sub_data = {}
         for (name, sub) in self.subscriptions.items():
             sub_data[name] = {
@@ -214,6 +211,8 @@ class GitHubEventAnnounce(callbacks.Plugin):
                     return False
 
         # Add/update token to known token list
+        if username in self.authorizations:
+            self.irc.reply('Updating token for known user %s' % username)
         self.authorizations[username] = token
 
     def listsubs(self, irc, msg, args, channel):
@@ -268,10 +267,6 @@ class Subscription(object):
         self.api_session.headers['user-agent'] = 'Supybot-GithubEventAnnounce 0.4' #noqa
         self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
-
-        # Test validity
-        # TODO doesn't work for private event streams? fix if possible
-        #self.validate_sub()
 
     def __str__(self):
         '''[type] user@url'''
