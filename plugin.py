@@ -513,7 +513,16 @@ class SubscriptionAnnouncer:
         self._send_messages(sub, msg, 'WatchEvent')
 
     def _send_messages(self, sub, msg, type):
+        # Global silence
+        if conf.get(conf.supybot.plugins.GitHubEventAnnounce.silence):
+            return
+
         for chan in sub.channels:
+            # See if we're under channel silence
+            if conf.get(conf.supybot.plugins.GitHubEventAnnounce.silence, chan): #noqa
+                return
+
+            # Get config for event type in chan
             try:
                 group = getattr(conf.supybot.plugins.GitHubEventAnnounce,
                                 'announce%ss' % (type))
@@ -523,7 +532,14 @@ class SubscriptionAnnouncer:
                 logger.error(pp.pformat(e))
                 group = None
 
-            if group is None or conf.get(group, chan):
+            # Allow if conf missing
+            if group is None:
+                event_allowed = True
+            else:
+                event_allowed = conf.get(group, chan)
+
+            # Send allowed events
+            if event_allowed:
                 qmsg = ircmsgs.privmsg(chan, msg)
                 sub.irc.queueMsg(qmsg)
 
