@@ -118,8 +118,8 @@ class GitHubEventAnnounce(callbacks.Plugin):
             sub = Subscription(irc, [channel], login_user, sub_type, target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
+            # TODO bad assuming
             return
-
         if str(sub) in self.subscriptions:
             if channel in self.subscriptions[str(sub)].channels:
                 irc.reply('The subscription %s already exists on channel %s' %
@@ -157,6 +157,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
                                          target)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
+            # TODO bad assuming
             return
 
         sub_found = False
@@ -309,10 +310,11 @@ class Subscription(object):
 
     def start_polling(self):
         logger.info("Starting GEA job %s" % self.job_name)
+        self.fetch_updates(count=10)
         schedule.addPeriodicEvent(
             self.fetch_updates,
             self.update_interval,
-            now=True,
+            now=False,
             name=self.job_name)
 
     def stop_polling(self):
@@ -323,7 +325,7 @@ class Subscription(object):
             logger.error('Attempted to stop nonexistant GEA job: %s' %
                          self.job_name)
 
-    def fetch_updates(self):
+    def fetch_updates(self, count=None):
         r = self.api_session.get(self.url)
         # Way chatty
         # logger.debug("Request headers")
@@ -331,15 +333,15 @@ class Subscription(object):
         # logger.debug("Response headers")
         # logger.debug(pp.pformat(r.headers))
 
-        if r.ok:
+        if r.status_code == 304:
+            # No updates since last fetch
+            return
+        elif r.ok:
             if 'etag' in r.headers:
                 # Update ETag to keep position
                 self.api_session.headers['If-None-Match'] = r.headers['etag']
             # Handle updates
-            self.announce_updates(r.json)
-        elif r.status_code == 304:
-            # No updates since last fetch
-            return
+            self.announce_updates(updates=r.json, count=count)
         else:
             err = 'Unable to retrieve updates for %s, error: %s (%s)' % (
                 self, r.text, r.reason)
@@ -348,7 +350,7 @@ class Subscription(object):
                 msg = ircmsgs.privmsg(ch, err)
                 self.irc.queueMsg(msg)
 
-    def announce_updates(self, updates):
+    def announce_updates(self, updates, count=None):
         '''Takes list of Event updates from GitHub, handles or discards event
             as configured'''
         sa = SubscriptionAnnouncer()
@@ -357,7 +359,10 @@ class Subscription(object):
         if hasattr(updates, '__call__'):
             updates = updates()
 
+        # TODO filter public==True for public subs
         updates = sorted(updates, key=lambda x: x['created_at'])
+        if count is not None:
+            updates = updates[-count:]
 
         for event in updates:
             #logger.debug(pp.pformat(event))
