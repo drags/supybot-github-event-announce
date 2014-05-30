@@ -71,8 +71,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
                 new_sub.latest_event_dt = latest_event_dt
 
                 # Start job
-                new_sub.start_polling()
-                self.subscriptions[name] = new_sub
+                self._start_sub(new_sub)
 
         # Rebuild authorizations table
         for (name, sub) in self.subscriptions.items():
@@ -228,12 +227,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
         for (name, sub) in self.pending_subscriptions.items():
             if sub.login_user == username:
                 sub.set_token(token)
-                if sub.validate_sub():
-                    sub.start_polling()
-                    self.subscriptions[name] = sub
-                    del(self.pending_subscriptions[name])
-                else:
-                    return False
+                self._start_sub(sub)
 
         # Add/update token to known token list
         self.authorizations[username] = token
@@ -263,7 +257,6 @@ class GitHubEventAnnounce(callbacks.Plugin):
 
     def listsubs(self, irc, msg, args, channel):
         '''List known subscriptions'''
-        global pp
         if len(self.subscriptions) > 0:
             irc.reply("Active subscriptions:")
             for (name, sub) in self.subscriptions.items():
