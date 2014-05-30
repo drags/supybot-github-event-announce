@@ -60,21 +60,23 @@ class GitHubEventAnnounce(callbacks.Plugin):
                 channels = [str(x) for x in sub['channels']]
                 new_sub = Subscription(irc, channels, str(sub['login_user']),
                                        str(sub['sub_type']),
-                                       str(sub['target']))
+                                       str(sub['target']),
+                                       str(sub['privacy_type']))
                 # Restore token, etag, last seen
-                new_sub.set_token(sub['token'])
                 new_sub.api_session.headers['If-None-Match'] = sub['etag']
+                if sub['privacy_type'] == 'private':
+                    new_sub.set_token(sub['token'])
                 latest_event_dt = \
                     datetime.datetime.fromtimestamp(sub['latest_event'])
                 new_sub.latest_event_dt = latest_event_dt
 
                 # Start job
-                new_sub.start_polling()
-                self.subscriptions[name] = new_sub
+                self._start_sub(new_sub)
 
         # Rebuild authorizations table
         for (name, sub) in self.subscriptions.items():
-            if sub.login_user not in self.authorizations:
+            if sub.login_user not in self.authorizations and \
+                    sub.privacy_type == 'private':
                 self.authorizations[sub.login_user] = sub.token
 
     def savesubs(self):
@@ -91,6 +93,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
                 'job_name': sub.job_name,
                 'etag': sub.api_session.headers.get('If-None-Match', ''),
                 'latest_event': int(sub.latest_event_dt.strftime('%s')),
+                'privacy_type': sub.privacy_type
             }
 
         # Stored in root of bot 'data' directory
@@ -105,17 +108,20 @@ class GitHubEventAnnounce(callbacks.Plugin):
             sub.stop_polling()
         self.savesubs()
 
-    def addsub(self, irc, msg, args, login_user, sub_type, target):
-        '''Add an event stream to watch: args(github_user, type, name)'''
-        if sub_type not in Subscription.sub_types:
-            known_types = ', '.join(Subscription.sub_types.keys())
-            irc.reply('Unknown subscription type: %s' % (sub_type))
-            irc.reply('Subscription type should be one of: %s' % (known_types))
+    def addsub(self, irc, msg, args, login_user, sub_type, target,
+               privacy_type):
+        '''<github_user> <subscription type> <target> [public|private]
+
+        Adds an event stream subscription. Privacy type defaults to 'public'
+        '''
+        if not self._check_sub_args(irc, privacy_type, login_user, sub_type,
+                                    target):
             return
 
         channel = msg.args[0]
         try:
-            sub = Subscription(irc, [channel], login_user, sub_type, target)
+            sub = Subscription(irc, [channel], login_user, sub_type, target,
+                               privacy_type)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
             # TODO bad assuming
@@ -134,27 +140,37 @@ class GitHubEventAnnounce(callbacks.Plugin):
 
         irc.reply('Adding new subscription %s' % (sub))
 
-        if login_user in self.authorizations:
-            self._auth_with_token(login_user, self.authorizations[login_user])
+        if privacy_type == 'private':
+            if login_user in self.authorizations:
+                self._auth_with_token(login_user,
+                                      self.authorizations[login_user])
+            else:
+                sub._authorize(msg)
         else:
-            sub._authorize(msg)
+            self._start_sub(sub)
     addsub = wrap(addsub, [('checkCapability', 'admin'),
                            'somethingWithoutSpaces', 'somethingWithoutSpaces',
-                           'somethingWithoutSpaces'])
+                           'somethingWithoutSpaces',
+                           optional('somethingWithoutSpaces',
+                                    default='public'),
+                           ]
+                  )
 
-    def delsub(self, irc, msg, args, login_user, sub_type, target):
-        '''Delete a subscription: args(github_user, type, name)'''
-        if sub_type not in Subscription.sub_types:
-            known_types = ', '.join(Subscription.sub_types.keys())
-            irc.reply('Unknown subscription type: %s' % (sub_type))
-            irc.reply('Subscription type should be one of: %s' % (known_types))
+    def delsub(self, irc, msg, args, login_user, sub_type, target,
+               privacy_type):
+        '''<github_user> <subscription type> <target> [public|private]
+
+        Deletes a known subscription. Privacy type defaults to 'public'
+        '''
+        if not self._check_sub_args(irc, privacy_type, login_user, sub_type,
+                                    target):
             return
 
         # create temp sub to match on __str__
         channel = msg.args[0]
         try:
             sub_to_delete = Subscription(irc, [channel], login_user, sub_type,
-                                         target)
+                                         target, privacy_type)
         except ValueError:
             # assume anything that raises a valueerror will reply on its own
             # TODO bad assuming
@@ -180,7 +196,11 @@ class GitHubEventAnnounce(callbacks.Plugin):
         self.cleanup_auths(login_user)
     delsub = wrap(delsub, [('checkCapability', 'admin'),
                            'somethingWithoutSpaces', 'somethingWithoutSpaces',
-                           'somethingWithoutSpaces'])
+                           'somethingWithoutSpaces',
+                           optional('somethingWithoutSpaces',
+                                    default='public'),
+                           ]
+                  )
 
     def cleanup_auths(self, login_user):
         '''Delete tokens for GitHub users having <1 subscriptions'''
@@ -208,19 +228,36 @@ class GitHubEventAnnounce(callbacks.Plugin):
         for (name, sub) in self.pending_subscriptions.items():
             if sub.login_user == username:
                 sub.set_token(token)
-                if sub.validate_sub():
-                    sub.start_polling()
-                    self.subscriptions[name] = sub
-                    del(self.pending_subscriptions[name])
-                else:
-                    return False
+                self._start_sub(sub)
 
         # Add/update token to known token list
         self.authorizations[username] = token
 
+    def _start_sub(self, sub):
+        if sub.validate_sub():
+            sub.start_polling()
+            name = str(sub)
+            self.subscriptions[name] = sub
+            if name in self.pending_subscriptions:
+                del(self.pending_subscriptions[name])
+        else:
+            return False
+
+    def _check_sub_args(self, irc, privacy_type, login_user, sub_type, target):
+        if sub_type not in Subscription.sub_types:
+            known_types = ', '.join(Subscription.sub_types.keys())
+            irc.reply('Unknown subscription type: %s' % (sub_type))
+            irc.reply('Subscription type should be one of: %s' % (known_types))
+            return False
+        if privacy_type not in Subscription.privacy_types:
+            irc.reply('Unknown privacy type: %s' % (privacy_type))
+            irc.reply('Privacy type should be one of: %s' %
+                      (Subscription.privacy_types))
+            return False
+        return True
+
     def listsubs(self, irc, msg, args, channel):
         '''List known subscriptions'''
-        global pp
         if len(self.subscriptions) > 0:
             irc.reply("Active subscriptions:")
             for (name, sub) in self.subscriptions.items():
@@ -240,17 +277,30 @@ Class = GitHubEventAnnounce
 
 class Subscription(object):
     sub_types = {
-        'user': 'https://api.github.com/users/%(target)s/events',
+        'user':
+        {'private': 'https://api.github.com/users/%(target)s/events',
+         'public': 'https://api.github.com/users/%(target)s/events/public', #noqa
+         },
         'repository':
-        'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
+        {'private':
+         'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
+         'public':
+         'https://api.github.com/repos/%(target_user)s/%(target_repo)s/events',
+         },
         'organization':
-        'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s',
+        {'private':
+         'https://api.github.com/users/%(login_user)s/events/orgs/%(target)s',
+         'public': 'https://api.github.com/orgs/%(target)s/events',
+         }
     }
+
+    privacy_types = ['private', 'public']
 
     update_interval = 60
     minimum_update_interval = 60
 
-    def __init__(self, irc, channels, login_user, sub_type, target):
+    def __init__(self, irc, channels, login_user, sub_type, target,
+                 privacy_type):
         if sub_type == 'repository':
             if target.find('/') == -1:
                 irc.reply(
@@ -258,11 +308,15 @@ class Subscription(object):
                 raise ValueError('Failed to split target') #noqa
             (target_user, target_repo) = target.split('/')
 
-        url = str(Subscription.sub_types[sub_type]) % locals()
+        url = str(Subscription.sub_types[sub_type][privacy_type]) % locals()
         self.irc = irc
         self.channels = channels
-        self.login_user = login_user
+        if privacy_type == 'private':
+            self.login_user = login_user
+        else:
+            self.login_user = 'public'
         self.sub_type = sub_type
+        self.privacy_type = privacy_type
         self.target = target
         self.url = url
         self.api_session = requests.Session()
