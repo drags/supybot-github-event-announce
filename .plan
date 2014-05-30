@@ -16,15 +16,25 @@ x- persistent storage
 x- allow subs in multiple channels
 x- per-channel configuration opts for enable/disable event types
 x- expand README
+x- obey 'silence' options (per channel and globally)
+x- allow for public (unauthenticated) subscriptions
+x- Use Cases + Alternatives in README
+x- standardize on _auth_with_token
+x- allow optional argument of public for public subs
+x- sub_types needs public and private types
+x- use login_user of 'public' for public subs
 - listauths
-- delauth
+- delauth?
     - remove subs for that user
 - better help output
-- enable/disable jobs?
 - option git.io(/other/custom?) wrapping for links
-- option to only announce events where public==true
-- obey 'silence' options (per channel and globally)
-- allow for public (unauthenticated) subscriptions
+- option to only announce events where public==true?
+    - what is criteria within github?
+- .deb
+- use supybot.log
+- option for short pushevents?
+- support "networks of repositories", and anything else on https://developer.github.com/v3/activity/events/
+- add __cmp__ to Subscription for checking existing subs
 
 
 Config:
