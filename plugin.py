@@ -176,12 +176,16 @@ class GitHubEventAnnounce(callbacks.Plugin):
             irc.reply('Sub %s was not found.' % sub_to_delete)
 
         # cleanup self.authorizations if GitHub user's last subscription
-        self.cleanup_subs(login_user)
+        self.cleanup_auths(login_user)
     delsub = wrap(delsub, [('checkCapability', 'admin'),
                            'somethingWithoutSpaces', 'somethingWithoutSpaces',
                            'somethingWithoutSpaces'])
 
-    def cleanup_subs(self, login_user):
+    def cleanup_auths(self, login_user):
+        '''Delete tokens for GitHub users having <1 subscriptions'''
+        if login_user == 'public':
+            return True
+
         if filter(lambda x: x.login_user == login_user,
                   self.subscriptions.values()) == []:
             try:
@@ -195,7 +199,7 @@ class GitHubEventAnnounce(callbacks.Plugin):
         '''Accept an OAuth token'''
         self._auth_with_token(username, token)
     authorize = wrap(authorize, ['somethingWithoutSpaces',
-                                 'somethingWithoutSpaces'])
+                                 'somethingWithoutSpaces', 'private'])
 
     def _auth_with_token(self, username, token):
         '''Finish OAuth handshake and init job'''
@@ -265,6 +269,7 @@ class Subscription(object):
         self.api_session.headers['user-agent'] = 'Supybot-GithubEventAnnounce 0.4' #noqa
         self.latest_event_dt = datetime.datetime(1970, 1, 1)
         self.job_name = 'poll-%s' % str(self)
+        self.token = ''  # placeholder token for saving/loading
 
     def __str__(self):
         '''[type] user@url'''
@@ -291,7 +296,7 @@ class Subscription(object):
         self.irc.queueMsg(
             ircmsgs.privmsg(
                 msg.nick,
-                "Login to github with the appropriate user, and click 'Create new token' on https://github.com/settings/applications")) #noqa
+                "Login to github as @%s, and generate a new 'Personal access token' on https://github.com/settings/applications" % (self.login_user))) #noqa
         self.irc.queueMsg(
             ircmsgs.privmsg(
                 msg.nick,
