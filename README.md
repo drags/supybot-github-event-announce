@@ -62,18 +62,18 @@ Currently this plugin understands the following event types:
 - IssueCommentEvent: A comment is added to an issue or pull request.
 - MemberEvent: A user is added as a repository collaborator.
 - TeamAddEvent: A user or repository is added to a team.
-- WatchEvent: A repository is starred. (No, really: https://developer.github.com/changes/2012-9-5-watcher-api/)
+- WatchEvent: A repository is starred. (No, [really](https://developer.github.com/changes/2012-9-5-watcher-api/))
 
 Event types not currently supported, roughly in order of priority:
 
 - ForkEvent - When a repository is forked
-- ReleaseEvent - When a release is published
 - PullRequestCommentEvent - Comments on a pull request diff
+- ReleaseEvent - When a [release](https://developer.github.com/v3/repos/releases/) is published
 - PublicEvent - From the GitHub API docs: "Triggered when a private repository is open sourced. Without a doubt: the best GitHub event."
-- PageBuildEvent - Only used to trigger hooks
-- DeploymentEvent - Only used to trigger hooks
-- DownloadEvent - Events are no longer being created, historical at this point.
-- FollowEvent - Events are no longer created, historical at this point.
+- PageBuildEvent - Only used to trigger hooks (no support planned)
+- DeploymentEvent - Only used to trigger hooks (no support planned)
+- DownloadEvent - Events are no longer being created, historical at this point. (no support planned)
+- FollowEvent - Events are no longer created, historical at this point. (no support planned)
 
 ## Creating GitHub tokens
 
