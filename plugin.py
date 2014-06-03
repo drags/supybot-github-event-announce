@@ -4,7 +4,6 @@
 # Because the firehose is delicious.
 ####################################
 # system
-import requests
 import datetime
 
 # SupyBot
@@ -17,6 +16,12 @@ import logging
 import json
 import os
 import sys
+
+# Import requests gracefully
+try:
+    import requests
+except ImportError:
+    raise callbacks.Error('GitHubEventAnnounce requires the python requests library. Install it via `pip`, `easy_install`, or from http://docs.python-requests.org/en/latest/user/install/#install') #noqa
 
 # debug
 import pprint
