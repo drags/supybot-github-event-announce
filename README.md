@@ -10,6 +10,8 @@ This plugin can be very chatty for busy users or organizations. One of the most 
 
 To get started, copy this plugin to the 'plugins' directory of your supybot's home directory (by default ~/.supybot) and rename the directory: `GitHubEventAnnounce`. Load the plugin via the bot with `/msg MyBot load GitHubEventAnnounce`. Configuring the plugin requires a Supybot user with at least the **admin** capability.
 
+**Note**: This plugin requires the Python Requests library to function. Install 'requests' via pip, easy_install, or from the [Requests homepage](http://docs.python-requests.org/en/latest/)
+
 GitHub has both public and private event streams. Private events are events that occur on private repositories. If you do not specify the **private** keyword when adding a subscription then it will default to a public subscription. Be sure to use (or not use) the same keyword when deleting a subscription, otherwise the sub to delete will not be found.
 
 Subscriptions are per channel, issue these commands in channel where GitHub events are to be announced:
