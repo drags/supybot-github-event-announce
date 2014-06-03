@@ -605,6 +605,28 @@ WatchEvent
 PublicEvent
 # Man I really need a private account
 
+ForkEvent
+
+
+ForkEvent
+	{u'actor': u'login': u'gea-test-user',
+	u'created_at': u'2014-06-03T06:27:11Z',
+	u'id': u'2125698438',
+	u'payload': {u'forkee': { u'full_name': u'gea-test-user/gea-test-repo',
+							u'html_url': u'https://github.com/gea-test-user/gea-test-repo',
+							u'name': u'gea-test-repo',
+							u'owner': u'login': u'gea-test-user',
+							u'url': u'https://api.github.com/repos/gea-test-user/gea-test-repo',
+	u'public': True,
+	u'repo': u'name': u'drags/gea-test-repo',
+	u'type': u'ForkEvent'}
+
+    @{a:login} forked repository {r:name} as {p:forkee:full_name}
+
+
+
+
+
 
 # Eventually:
 DeploymentEvent

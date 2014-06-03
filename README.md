@@ -63,10 +63,10 @@ Currently this plugin understands the following event types:
 - MemberEvent: A user is added as a repository collaborator.
 - TeamAddEvent: A user or repository is added to a team.
 - WatchEvent: A repository is starred. (No, [really](https://developer.github.com/changes/2012-9-5-watcher-api/))
+- ForkEvent - When a repository is forked
 
 Event types not currently supported, roughly in order of priority:
 
-- ForkEvent - When a repository is forked
 - PullRequestCommentEvent - Comments on a pull request diff
 - ReleaseEvent - When a [release](https://developer.github.com/v3/repos/releases/) is published
 - PublicEvent - From the GitHub API docs: "Triggered when a private repository is open sourced. Without a doubt: the best GitHub event."

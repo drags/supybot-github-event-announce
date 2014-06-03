@@ -39,6 +39,9 @@ conf.registerChannelValue(GitHubEventAnnounce, 'announceTeamAddEvents',
 conf.registerChannelValue(GitHubEventAnnounce, 'announceWatchEvents',
                           registry.Boolean(True, 'Announce Watch events'))
 
+conf.registerChannelValue(GitHubEventAnnounce, 'announceForkEvents',
+                          registry.Boolean(True, 'Announce Fork events'))
+
 conf.registerChannelValue(GitHubEventAnnounce, 'silence',
                          registry.Boolean(False, 'Disable all subscription announcements'))
 

@@ -573,6 +573,16 @@ class SubscriptionAnnouncer:
             msg = "GEA: Failed to parse event"
         self._send_messages(sub, msg, 'WatchEvent')
 
+    def ForkEvent(self, sub, e):
+        (a, p, r) = self._mkdicts('apr', e)
+        try:
+            msg = '@%s forked repository %s as %s' % \
+                (a['login'], r['name'], p['forkee']['full_name'])
+        except KeyError as err:
+            logger.error("Got KeyError in ForkEvent: %s" % err)
+            msg = "GEA: Failed to parse event"
+        self._send_messages(sub, msg, 'ForkEvent')
+
     def _send_messages(self, sub, msg, type):
         # Global silence
         if conf.get(conf.supybot.plugins.GitHubEventAnnounce.silence):
